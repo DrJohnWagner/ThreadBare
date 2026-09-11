@@ -10,12 +10,15 @@ only need the "Everyday use" section.
 ## What's in this repo
 
 ```
-backend/          Python API (FastAPI)
-  app/main.py      the API application
-  requirements.txt Python dependencies
-frontend/          React + TypeScript SPA (created with Vite)
-  src/App.tsx      the page you'll edit — shows the React logo and a counter
-.venv/             your Python virtual environment (created below, not in git)
+backend/                Python API (FastAPI)
+  app/main.py           the API application
+  requirements.txt      runtime Python dependencies
+  requirements-dev.txt  requirements.txt + Black (the code formatter)
+frontend/               React + TypeScript SPA (created with Vite)
+  src/App.tsx           the page you'll edit — shows the React logo and a counter
+  .prettierrc.json      formatting rules ESLint applies via Prettier
+pyproject.toml          Black's configuration (applies to backend/)
+.venv/                  your Python virtual environment (created below, not in git)
 ```
 
 ## Prerequisites
@@ -158,8 +161,12 @@ interpreter by default via `.vscode/settings.json`.
 With the venv activated:
 
 ```sh
-pip install -r backend/requirements.txt
+pip install -r backend/requirements-dev.txt
 ```
+
+(`requirements-dev.txt` pulls in `requirements.txt` plus Black, the code formatter — see
+"Code style" below. If you only ever want the app's own runtime dependencies, without
+Black, install `backend/requirements.txt` instead.)
 
 ### Step 4 — Install the frontend dependencies
 
@@ -205,6 +212,25 @@ Open the URL it prints (usually `http://localhost:5173`) in your browser. You sh
 see the React logo and a "count is 0" button — click it and the count goes up. Edit
 `frontend/src/App.tsx` and save; the page updates automatically without a manual
 refresh.
+
+## Code style
+
+All code in this repo uses four-space indentation. Two tools enforce this automatically
+— you shouldn't need to think about indentation by hand.
+
+- **TypeScript / TSX** — ESLint checks correctness, and runs
+  [Prettier](https://prettier.io/) as one of its rules (`frontend/eslint.config.js`,
+  `frontend/.prettierrc.json`) to check formatting, including indentation. Run
+  `npm run lint` (from `frontend/`) to check, or `npm run lint:fix` to auto-fix what it
+  can.
+- **Python** — [Black](https://black.readthedocs.io/) formats every file, no
+  configuration needed (it's not a style you argue with — that's the point). With the
+  venv active, run `black backend` to format, or `black --check backend` to check
+  without changing anything.
+
+If you installed the recommended VS Code extensions (see Prerequisites), both run
+automatically on save: ESLint fixes TypeScript issues it can auto-fix, and the Black
+Formatter extension reformats Python files.
 
 ## Troubleshooting
 

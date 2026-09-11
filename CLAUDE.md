@@ -44,6 +44,17 @@ session.
   using it.
 - Keep components small; colocate styles the way `App.tsx`/`App.css` already do.
 
+## Code style
+
+Four-space indentation everywhere, enforced by tooling, not by hand:
+
+- TypeScript/TSX: ESLint runs Prettier as a rule (`frontend/eslint.config.js`,
+  `frontend/.prettierrc.json`, tabWidth 4). Run `npm run lint:fix` after editing, or
+  trust it (VS Code fixes on save with the recommended extensions installed).
+- Python: Black (`backend/requirements-dev.txt`). Run `black backend` after editing.
+
+Don't hand-indent to "look right" and skip the formatter — run it, don't eyeball it.
+
 ## General
 
 - When a student is trying to learn the step themselves ("how do I...", "what does this
