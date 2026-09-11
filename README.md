@@ -20,11 +20,38 @@ frontend/          React + TypeScript SPA (created with Vite)
 
 ## Prerequisites
 
-You need three things installed before you start: VS Code, Python 3.11+, and Node.js 20+.
+You need four things installed before you start: Git, VS Code, Python 3.11+, and
+Node.js 20+.
 
-### 1. VS Code
+### 1. Git
 
-Download and install from [code.visualstudio.com](https://code.visualstudio.com/).
+Check whether you already have it:
+
+```sh
+git --version
+```
+
+If that prints a version number, skip to VS Code below.
+
+**macOS:** running the command above with no Git installed triggers a macOS prompt to
+install the "Command Line Tools" — accept it, wait for the install to finish, then run
+`git --version` again to confirm. If you use Homebrew instead: `brew install git`.
+
+**Windows:**
+
+Download and run the installer from [git-scm.com/download/win](https://git-scm.com/download/win) —
+accept the defaults on every screen. This also installs **Git Bash**, a terminal that
+understands the `sh` (bash) commands used throughout this README, which the default
+Windows Command Prompt does not. If you use `winget` instead:
+`winget install --id Git.Git -e --source winget`.
+
+After installing, close and reopen your terminal (or open Git Bash), then confirm with
+`git --version`.
+
+### 2. VS Code
+
+Download and install from [code.visualstudio.com](https://code.visualstudio.com/) — same
+installer page for macOS and Windows.
 
 Open this project folder in VS Code (`File > Open Folder…`). When VS Code opens it, it
 will prompt you to install some recommended extensions (Python and ESLint) — click
@@ -35,7 +62,7 @@ will prompt you to install some recommended extensions (Python and ESLint) — c
 - **Pylance** (by Microsoft)
 - **ESLint** (by Microsoft/dbaeumer)
 
-### 2. Python
+### 3. Python
 
 Check whether you already have Python 3.11 or newer:
 
@@ -43,15 +70,21 @@ Check whether you already have Python 3.11 or newer:
 python3 --version
 ```
 
-If that prints `Python 3.11.x` or higher, you're set. If it's older, missing, or you're
-on Windows and `python3` isn't recognised, install Python from
-[python.org/downloads](https://www.python.org/downloads/). On Windows, tick
-**"Add python.exe to PATH"** during install.
+If that prints `Python 3.11.x` or higher, you're set. Otherwise:
+
+**macOS:** install from [python.org/downloads/macos](https://www.python.org/downloads/macos/)
+(download the `.pkg` and run it), or with Homebrew: `brew install python@3.12`.
+
+**Windows:** install from [python.org/downloads/windows](https://www.python.org/downloads/windows/)
+— download the installer and run it. On the first install screen, tick
+**"Add python.exe to PATH"** before clicking Install; this is the step people most often
+miss. Or with winget: `winget install --id Python.Python.3.12 -e`. After installing on
+Windows, `python3` may not exist — use `python --version` instead to check.
 
 You do **not** need Python 3.14 specifically to run this project — anything 3.11+ works
 with the instructions below.
 
-### 3. Node.js
+### 4. Node.js
 
 Check whether you already have Node.js:
 
@@ -60,8 +93,16 @@ node --version
 npm --version
 ```
 
-You need Node 20 or newer. If missing or older, install the **LTS** version from
-[nodejs.org](https://nodejs.org/).
+You need Node 20 or newer. If missing or older:
+
+**macOS:** download the **LTS** installer from [nodejs.org](https://nodejs.org/) and run
+it, or with Homebrew: `brew install node@20`.
+
+**Windows:** download the **LTS** installer from [nodejs.org](https://nodejs.org/) and
+run it (accept the defaults, including the optional Chocolatey/native-module step — you
+can leave that unchecked), or with winget: `winget install --id OpenJS.NodeJS.LTS -e`.
+
+After installing, close and reopen your terminal, then confirm with `node --version`.
 
 ## First-time setup
 
@@ -143,7 +184,7 @@ Once first-time setup is done, each time you come back to work on the project:
 ### Run the backend API
 
 ```sh
-source .venv/bin/activate   # if not already active; on Windows use .venv\Scripts\Activate.ps1
+source .venv/bin/activate   # if not already active; on Windows use .venv\Scripts\activate.bat
 uvicorn backend.app.main:app --reload
 ```
 
@@ -167,9 +208,13 @@ refresh.
 
 ## Troubleshooting
 
+- **`git: command not found` / `'git' is not recognized`** — Git isn't installed or your
+  terminal was opened before the install finished. Close and reopen the terminal; if that
+  doesn't fix it, reinstall (see Prerequisites above).
 - **`python3: command not found` / `'python3' is not recognized`** — Python isn't
   installed or isn't on your PATH. Reinstall from python.org and make sure the PATH
-  option is checked (Windows).
+  option is checked (Windows). On Windows, also try `python --version` — the launcher is
+  often named `python`, not `python3`.
 - **`(.venv)` doesn't appear in your prompt after activating** — make sure you ran the
   activate command from the project root, and that `.venv/` exists (re-run Step 1 if
   not).
