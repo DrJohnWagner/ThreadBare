@@ -1,7 +1,44 @@
 # ThreadBare
 
-ThreadBare is a small full-stack app: a React + TypeScript single-page front end and a
-Python (FastAPI) back end.
+Generates **parallel programs with deliberate concurrency bugs**, for teaching.
+
+Give ThreadBare a starting point — source code, a URL, or a plain-English description of a
+computation — then choose a target language and threading model and pick which failure
+modes to plant. A chain of LLM agents returns four artifacts:
+
+| artifact | what it is |
+|---|---|
+| **serial reference** | the single-threaded implementation, and the oracle everything else is compared against |
+| **parallel version** | the same computation, multithreaded, carrying the failure modes you selected — with nothing in the code pointing at them |
+| **test harness** | drives both versions and compares them, so a planted failure is observed rather than asserted |
+| **bug report** | what a separate LLM finds when handed the three files above and asked what is wrong |
+
+The report is written by an agent that **did not plant the bugs**. It sees only the serial
+code, the parallel code and the harness — the same evidence a student gets — which makes the
+report a finding rather than a transcript. The gap between what was planted and what was
+found is then information in its own right: a planted bug the analyser missed is either well
+hidden or not actually present, and a bug it found that nobody planted is a real defect the
+generator introduced by accident.
+
+Failure modes come from a **19-item taxonomy in three families** — Incorrect (wrong results),
+Slow (correct but doesn't scale), Non-terminating (never finishes). The taxonomy drives
+selection, the report, and the coverage view across saved benchmarks.
+
+**Input and target are independent.** Source material in Rust can produce a benchmark in
+C/C++ with OpenMP; a prose description can produce one in any supported target. What you
+supply defines the *computation*, not the language it comes back in.
+
+Vite + React + TypeScript on the front end, Python/FastAPI behind it.
+
+## Scope of this version
+
+Shared-memory multithreading only. Distributed models such as MPI come later; the taxonomy
+is written to absorb them without restructuring.
+
+The audience is an **instructor building teaching examples** — programs with a known intended
+defect, a harness that demonstrates it, and an explanation to mark against. The saved-benchmark
+and coverage machinery is being built toward research use, evaluating bug-finding tools against
+a collection with known answers, but that is not what this version is for.
 
 This README is written for students who are new to Python virtual environments and to
 React. Follow it top to bottom the first time you set the project up. After that, you'll
