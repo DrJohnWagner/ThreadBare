@@ -14,18 +14,18 @@ product decision — don't read it as scope.
 
 ## Open — build these into the real frontend, don't just port the mock
 
-1. **The blind analyser.** The README's core claim: the bug report comes from an agent
+1. **The blind analyser.** The README's core claim: the report comes from an agent
    that never saw what was planted, so planted-vs-found is itself a signal. The mock's
    explanation panel is documentation of the plant, not an independent finding — no
    second pass, no diff. This has to actually exist; it can't be more fixture data.
 2. **Four artifacts, three tabs.** README artifacts: serial reference, parallel version,
-   test harness, bug report. The mock only surfaces buggy code + harness + explanation
+   test harness, report. The mock only surfaces buggy code + harness + explanation
    on-screen — the serial reference lives only inside the exported zip. Design the real
    tab structure around all four.
 3. **Source-material input is inert.** The code/text/URL fields in Step 1 exist in the
    UI and get built into a request payload, but never affect which example is served.
    The real version needs this to actually drive generation.
-4. **Bug-report framing.** Whatever replaces the current per-bug explanation should read
+4. **Report framing.** Whatever replaces the current per-bug explanation should read
    as a *finding* — distinct in voice and structure from the planted-bug metadata
    (title, type, difficulty). The gap between the two is supposed to carry information,
    per the README; collapsing them into one blurb loses that.

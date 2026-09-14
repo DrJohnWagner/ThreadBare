@@ -14,14 +14,15 @@ artifacts — plus a history of past requests. From the README:
 - **Parallel version** — the same computation, multithreaded, carrying the planted
   failure modes, no comments pointing at them.
 - **Test harness** — drives both and compares them.
-- **Bug report** — written by an agent that never saw what was planted; sees only the
-  three artifacts above.
+- **Report** — structured JSON from an agent that never saw what was planted; sees only
+  the three artifacts above. A list of findings, each with a failure type, the line(s)
+  it points at, and a short explanation — not prose.
 
 The comparison between what was planted and what the report found is the point of the
 product. It is a first-class piece of the data model, not a text blurb:
 
 ```ts
-type FailureCategory = 'incorrect' | 'slow' | 'nonterminating'
+type FailureCategory = 'safety' | 'performance' | 'liveness'
 
 interface TaxonomyItem {
   key: string
@@ -42,9 +43,10 @@ interface PlantedBug {
   implementationNote: string     // where/how it was inserted — never shown to the analyser
 }
 
-interface BugReportFinding {
-  description: string            // the analyser's own words
-  matchedTypeKey: string | null  // taxonomy key this finding maps to, if any
+interface ReportFinding {
+  typeKey: string       // taxonomy key this finding is classified as
+  lines: number[]       // 1-indexed line(s) into parallelVersion this finding points at
+  explanation: string   // short, the analyser's own words — not an essay
 }
 
 interface Run {
@@ -56,7 +58,7 @@ interface Run {
   parallelVersionFixed: string   // corrected version, produced up front, revealed on click
   testHarness: string
   plantedBugs: PlantedBug[]
-  bugReport: BugReportFinding[]
+  report: ReportFinding[]
   fixed: boolean                 // has "Fix Bugs" been revealed for this run? starts false
 }
 
@@ -90,14 +92,23 @@ six hand-picked examples; nothing in the README's pipeline assesses difficulty f
 generated run, and there's no plan to build that assessment, so the concept is dropped
 outright rather than carried as an open question.
 
-## API contract (backend not yet built — this is what the frontend calls)
+## API contract
 
-Persistence: an in-memory list of runs on the backend process, lost on restart. No
-database for MVP. Enough to back History and Dashboard for real, since a class session
-doesn't span a backend reboot.
+Implemented, as of `feat/frontend-and-stub-api`, backed by fixtures rather than a real
+generation pipeline — see `backend/app/fixtures.py`. `POST /api/runs` returns one of six
+canned examples (ported from `DESIGN.html`), picked by requested failure mode when one
+matches, random otherwise. Every other endpoint is fully real: in-memory store, real
+zip-building, real dashboard aggregation. Replacing the fixture logic inside
+`create_run` with an actual LLM chain is the only change needed to make this the real
+backend — the contract, storage, and every other route stay as they are.
+
+Persistence: an in-memory dict of runs on the backend process (`backend/app/store.py`),
+lost on restart. No database for MVP. Enough to back History and Dashboard for real,
+since a class session doesn't span a backend reboot.
 
 | Method & path              | Body                  | Returns              | Notes |
 |------------------------------|------------------------|-----------------------|-------|
+| `GET /api/taxonomy`         | —                      | `Taxonomy`            | Serves `schemas/taxonomy.json` straight off disk — added so the frontend never needs its own copy of the 19 items. |
 | `POST /api/runs`            | `GenerationRequest`    | `Run`                 | Invokes the full agent chain synchronously. The slow call. |
 | `GET /api/runs`             | —                      | `HistoryRecord[]`     | List for History page. |
 | `GET /api/runs/:id`         | —                      | `Run`                 | Expanding a History row. |
@@ -108,7 +119,7 @@ doesn't span a backend reboot.
 | `GET /api/runs/export`      | —                      | `application/zip`     | All runs, one archive — "Export all as .zip" on History. |
 
 **No separate "fix" or "analyse" generation endpoint.** The fixed/corrected version and
-the bug report are both produced by the one `POST /api/runs` call; "Fix Bugs" reveals
+the report are both produced by the one `POST /api/runs` call; "Fix Bugs" reveals
 `Run.parallelVersionFixed`, already in hand from that response, and then fires
 `PATCH /api/runs/:id` in the background purely so the backend's own record is accurate
 for Dashboard/History — matching the mock's already-established pattern of treating this
@@ -143,21 +154,23 @@ argues against building it before the plain version works.
 ```
 frontend/src/
   api/
-    runs.ts              generateRun, listRuns, getRun, markFixed, clearRuns — fetch wrappers
-    dashboard.ts          getDashboardStats
-    downloadUrl.ts         builds the href for the download-zip anchors — no fetch involved
+    client.ts               fetch wrapper: base URL, JSON parsing, error normalization
+    taxonomy.ts              getTaxonomy — GET /api/taxonomy
+    runs.ts                  generateRun, listRuns, getRun, markFixed, clearRuns
+    dashboard.ts             getDashboardStats
+    downloadUrl.ts           builds the href for the download-zip anchors — no fetch involved
   types/
-    taxonomy.ts           TaxonomyItem, FailureCategory
-    run.ts                GenerationRequest, PlantedBug, BugReportFinding, Run, HistoryRecord
-  data/
-    taxonomy.ts            the 19-item taxonomy — ported verbatim from DESIGN.html's CATEGORIES/BUG_TYPES
+    taxonomy.ts           TaxonomyItem, TaxonomyCategory, FailureCategory
+    run.ts                GenerationRequest, PlantedBug, ReportFinding, Run, HistoryRecord, DashboardStats
+  lib/
+    taxonomyLookup.ts       labelForType, categoryForType, labelForCategory, colorForCategory, softColorForCategory — the one place taxonomy lookups live, instead of duplicated per-component
   components/
     Tag.tsx, PrimaryButton.tsx, GhostButton.tsx, NumberBadge.tsx   generic UI atoms, ported as-is
-    icons.tsx                                                       CodeIcon/TextIcon/LinkIcon/ChevronIcon
+    icons.tsx                                                       CodeIcon/TextIcon/LinkIcon/ChevronIcon/Logo
     CodeBlock.tsx                                                   line-numbered code viewer, ported as-is
-    ErrorCategorySelector.tsx, ErrorItem.tsx                        taxonomy picker, ported as-is
-    ArtifactTabs.tsx           new — the 4-tab result viewer (replaces the mock's inline sub-tabs)
-    BugReportPanel.tsx         new — replaces BugListItem; renders findings vs. planted, see below
+    FailureCategorySelector.tsx, FailureItem.tsx                    taxonomy picker, as tabbed panels (one per category); takes taxonomy data as a prop (from useTaxonomy) instead of importing a static list
+    Tabs.tsx                   generic tab-bar-and-panel widget — used by both the Lab results view and FailureCategorySelector
+    ReportPanel.tsx             new — replaces BugListItem; renders findings vs. planted, see below
     HistoryRow.tsx, StatCard.tsx, BreakdownCard.tsx                 ported as-is
   pages/
     LabPage.tsx, HistoryPage.tsx, DashboardPage.tsx, AboutPage.tsx
@@ -178,7 +191,7 @@ utility-CSS framework's config and class-name vocabulary is exactly the kind of 
 surface area that rule exists to avoid for a team that has never used React. Instead:
 
 - The mock's `C` object becomes CSS custom properties on `:root` in `index.css`
-  (`--color-accent`, `--color-incorrect-soft`, etc.) — same palette, no per-render style
+  (`--color-accent`, `--color-safety-soft`, etc.) — same palette, no per-render style
   object allocation, and every component gets it via `className` + a stylesheet.
 - Each component/page gets its own colocated `.css` file, same pattern as `App.css`.
 - Layout (the mock's flex/grid arrangements) is reimplemented in plain CSS with the same
@@ -187,10 +200,12 @@ surface area that rule exists to avoid for a team that has never used React. Ins
 ## State management
 
 - Form state (Lab page inputs) — plain `useState`, matches the mock.
-- Data fetching — three small custom hooks, one per domain: `useGenerateRun`,
-  `useHistory`, `useDashboardStats`. Each wraps its `api/runs.ts` call and owns its own
+- Data fetching — small custom hooks, one per domain: `useTaxonomy`, `useGenerateRun`,
+  `useHistory`, `useDashboardStats`. Each wraps its `api/*.ts` call and owns its own
   loading/error state. No Redux, no Zustand, no React Query — CLAUDE.md rules those out,
-  and a four-page app with one slow mutation and two list reads doesn't need them.
+  and a four-page app with one slow mutation and three list/lookup reads doesn't need
+  them. `useTaxonomy` runs once at the `App` level (the Lab page can't render its error
+  picker without it) and is passed down, rather than every page re-fetching it.
 - Nav state and the global error banner live in `App.tsx` and are passed down one level
   to whichever page is active — shallow enough that Context isn't justified yet.
 
@@ -223,11 +238,18 @@ Result tabs are renamed to match the README's four artifacts, and a tab is added
 |---------------|----------------------|--------|
 | *(none)*      | **Serial Reference** | New — was buried inside the zip download only |
 | Buggy Code    | **Parallel Version**  | Renamed |
-| Test Harness  | **Test Harness**      | Unchanged |
-| Explanation   | **Bug Report**        | Renamed and redesigned — see below |
+| Test Harness  | **Test Harness**      | Unchanged in name; now renders real driver code (its own `main()`, linked against `serial.c`/`parallel.c`), not a prose description |
+| Explanation   | **Report**            | Renamed (not "Bug Report" — see below) and redesigned |
 
-**Bug Report tab** (`BugReportPanel`) is the piece the mock is missing entirely. Layout:
-the analyser's findings (`Run.bugReport`) are shown first, in the analyser's own words,
+Not "Bug Report" — the taxonomy already dropped "bug"-flavored naming once (Safety /
+Performance / Liveness failures, not "Incorrect"), and a performance or liveness failure
+isn't a "bug" in the colloquial sense either. "Report" matches that.
+
+**Report tab** (`ReportPanel`) is the piece the mock is missing entirely. `Run.report` is
+structured JSON, not prose: a list of findings, each with a `typeKey`, one or more
+`lines` into `parallelVersion`, and a short `explanation` — mirroring how `PlantedBug`
+already carries a `typeKey` and an `implementationNote`, so planted and found use the
+same vocabulary. The analyser's findings are shown first, in the analyser's own words,
 with no reference to what was planted — preserving the "guess before you look" moment.
 A second, separately-revealed section ("What was actually planted") shows `plantedBugs`
 and highlights which findings matched. This keeps the mock's existing collapse-behind-a-

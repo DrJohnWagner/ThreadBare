@@ -1,0 +1,36 @@
+.code-block {
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background-color: #f7fbfe;
+}
+
+.code-block__scroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 420px;
+}
+
+.code-block table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.code-block__line-number {
+    user-select: none;
+    text-align: right;
+    padding: 0 16px;
+    width: 40px;
+    vertical-align: top;
+    color: var(--color-text-faint);
+    border-right: 1px solid var(--color-border);
+}
+
+.code-block__line-content {
+    padding: 0 24px 0 16px;
+    white-space: pre;
+    vertical-align: top;
+}

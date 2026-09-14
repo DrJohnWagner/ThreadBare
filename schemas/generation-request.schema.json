@@ -16,14 +16,14 @@
       "description": "Taxonomy item keys the user asked to have planted. Empty array means the generator's choice."
     },
     "sourceMaterial": {
-      "type": "object",
+      "type": ["object", "null"],
       "properties": {
         "code": { "type": "string" },
         "text": { "type": "string" },
         "url": { "type": "string", "format": "uri" }
       },
       "additionalProperties": false,
-      "description": "Any combination may be present; all are optional."
+      "description": "Null, or any combination of code/text/url present. Always present as a key on the wire (Pydantic serializes Optional[...] = None as an explicit null, not an absent key) — not optional-and-absent."
     }
   },
   "required": ["language", "failureModes"],

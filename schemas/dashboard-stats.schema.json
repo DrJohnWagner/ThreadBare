@@ -16,11 +16,11 @@
     "byCategory": {
       "type": "object",
       "properties": {
-        "incorrect": { "type": "integer", "minimum": 0 },
-        "slow": { "type": "integer", "minimum": 0 },
-        "nonterminating": { "type": "integer", "minimum": 0 }
+        "safety": { "type": "integer", "minimum": 0 },
+        "performance": { "type": "integer", "minimum": 0 },
+        "liveness": { "type": "integer", "minimum": 0 }
       },
-      "required": ["incorrect", "slow", "nonterminating"],
+      "required": ["safety", "performance", "liveness"],
       "additionalProperties": false,
       "description": "All three keys always present, defaulting to 0 — fixed to the three families in taxonomy.json."
     },

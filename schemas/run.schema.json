@@ -28,9 +28,9 @@
       "type": "array",
       "items": { "$ref": "planted-bug.schema.json" }
     },
-    "bugReport": {
+    "report": {
       "type": "array",
-      "items": { "$ref": "bug-report-finding.schema.json" },
+      "items": { "$ref": "report-finding.schema.json" },
       "description": "Artifact 4, from the blind analyser. Compare against plantedBugs to see what was found vs. planted — that comparison is computed by the client, not stored here."
     },
     "fixed": {
@@ -47,7 +47,7 @@
     "parallelVersionFixed",
     "testHarness",
     "plantedBugs",
-    "bugReport",
+    "report",
     "fixed"
   ],
   "additionalProperties": false
