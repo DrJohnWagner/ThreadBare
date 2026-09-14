@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/dashboard-stats.schema.json",
+  "title": "DashboardStats",
+  "description": "Pre-aggregated stats, computed server-side over the in-memory run list. Returned by GET /api/dashboard. No 'difficulty' or 'byLanguage' breakdown — MVP has one language (no information in that chart) and no way to assess difficulty (dropped, not deferred).",
+  "type": "object",
+  "properties": {
+    "totalRuns": { "type": "integer", "minimum": 0 },
+    "fixedCount": { "type": "integer", "minimum": 0 },
+    "fixRate": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Null when totalRuns is 0 — 'no data yet' is not the same as '0%'."
+    },
+    "byCategory": {
+      "type": "object",
+      "properties": {
+        "incorrect": { "type": "integer", "minimum": 0 },
+        "slow": { "type": "integer", "minimum": 0 },
+        "nonterminating": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["incorrect", "slow", "nonterminating"],
+      "additionalProperties": false,
+      "description": "All three keys always present, defaulting to 0 — fixed to the three families in taxonomy.json."
+    },
+    "byType": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "Keyed by taxonomy item key. Open map, not enumerated here, so this schema doesn't need updating whenever taxonomy.json's item list changes."
+    }
+  },
+  "required": ["totalRuns", "fixedCount", "fixRate", "byCategory", "byType"],
+  "additionalProperties": false
+}

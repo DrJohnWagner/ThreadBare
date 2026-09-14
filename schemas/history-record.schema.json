@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/history-record.schema.json",
+  "title": "HistoryRecord",
+  "description": "Lightweight run summary for the History list — no code bodies. Returned by GET /api/runs.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "language": { "const": "c-openmp" },
+    "requestedFailureModes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What the user asked for — taxonomy keys."
+    },
+    "plantedTypeKeys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What was actually planted — flattened from the full Run's plantedBugs, so the list view can render tags without fetching the full Run."
+    },
+    "fixed": { "type": "boolean" }
+  },
+  "required": [
+    "id",
+    "createdAt",
+    "language",
+    "requestedFailureModes",
+    "plantedTypeKeys",
+    "fixed"
+  ],
+  "additionalProperties": false
+}
