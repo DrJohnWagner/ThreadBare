@@ -1,0 +1,210 @@
+.lab-page {
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+.lab-page__title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.lab-page__subtitle {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+.lab-page__layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 32px;
+}
+
+@media (min-width: 960px) {
+    .lab-page__layout {
+        grid-template-columns: 1.6fr 1fr;
+    }
+}
+
+.lab-page__steps {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.lab-page__step-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.lab-page__step-heading h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.lab-page__step-body {
+    margin-left: 36px;
+}
+
+.lab-page__step-hint {
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: var(--color-text-faint);
+}
+
+.lab-page__field {
+    margin-bottom: 12px;
+}
+
+.lab-page__field-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+}
+
+.lab-page__input,
+.lab-page__textarea {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface-2);
+    color: var(--color-text);
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.lab-page__textarea {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    resize: vertical;
+}
+
+.lab-page__language-value {
+    display: inline-block;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.lab-page__selection-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.lab-page__selection-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.lab-page__selection-header-actions button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0;
+}
+
+.lab-page__request-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    padding: 0;
+}
+
+.lab-page__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.lab-page__sidebar-card {
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    padding: 20px;
+}
+
+.lab-page__sidebar-eyebrow {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-faint);
+}
+
+.lab-page__sidebar-body {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.lab-page__notice {
+    margin-top: 12px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    background-color: var(--color-accent-soft);
+    color: var(--color-accent-hover);
+}
+
+.lab-page__results {
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid var(--color-border);
+}
+
+.lab-page__results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.lab-page__results-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lab-page__results-title h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.lab-page__results-panel {
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    overflow: hidden;
+}

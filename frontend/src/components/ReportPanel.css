@@ -1,0 +1,100 @@
+.report__heading {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.report__subtext {
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: var(--color-text-faint);
+}
+
+.report__findings {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.report__finding {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background-color: var(--color-surface);
+}
+
+.report__finding p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text);
+}
+
+.report__finding-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.report__lines {
+    font-size: 11px;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    color: var(--color-text-faint);
+    white-space: nowrap;
+}
+
+.report__match-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.report__match-tag--found {
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+}
+
+.report__match-tag--missed {
+    background-color: var(--color-danger-soft);
+    color: var(--color-danger);
+}
+
+.report__reveal-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 16px 0;
+    border: none;
+    background: none;
+    color: var(--color-accent);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+}
+
+.report__planted {
+    margin-bottom: 16px;
+}
+
+.report__note {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--color-text-faint);
+}
+
+.report__fix {
+    margin-top: 16px;
+}
+
+.report__fixed-code {
+    margin-top: 16px;
+}

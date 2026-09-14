@@ -12,7 +12,7 @@ interfaces should be generated, not maintained in parallel.
   `.json` file is real content, not a placeholder; both sides load it rather than
   hardcoding their own copy of the 19 items.
 - `generation-request.schema.json` — body of `POST /api/runs`.
-- `planted-bug.schema.json`, `bug-report-finding.schema.json` — the two halves of the
+- `planted-bug.schema.json`, `report-finding.schema.json` — the two halves of the
   planted-vs-found comparison that's the point of the product.
 - `run.schema.json` — full generation result (`POST /api/runs`, `GET /api/runs/{id}`).
 - `history-record.schema.json` — lightweight list entry (`GET /api/runs`).
