@@ -38,3 +38,34 @@
     transform: rotate(360deg);
   }
 }
+
+.App-header h1 {
+  font-size: calc(12px + 1.5vmin);
+  margin-bottom: 0.5em;
+}
+
+.App-header input {
+  font-size: calc(10px + 1vmin);
+  padding: 0.5em 1em;
+  margin-bottom: 1em;
+  border-radius: 4px;
+  border: none;
+  width: min(80vw, 320px);
+}
+
+.App-buttons {
+  display: flex;
+  gap: 1em;
+}
+
+.App-result {
+  max-width: 60ch;
+  white-space: pre-wrap;
+  margin-top: 1em;
+  padding: 0 1em;
+}
+
+.App-error {
+  color: #f87171;
+  margin-top: 1em;
+}
