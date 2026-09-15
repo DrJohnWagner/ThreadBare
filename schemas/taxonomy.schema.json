@@ -40,7 +40,7 @@
         "key": {
           "type": "string",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "description": "Stable identifier. Referenced by GenerationRequest.failureModes, PlantedBug.typeKey, ReportFinding.typeKey, HistoryRecord.plantedTypeKeys, and DashboardStats.byType keys."
+          "description": "Stable identifier. Referenced by GenerationRequest.failureModes, PlantedFailure.typeKey, ReportFinding.typeKey, HistoryRecord.plantedTypeKeys, and DashboardStats.byType keys."
         },
         "label": { "type": "string" },
         "category": { "$ref": "#/$defs/failureCategoryKey" },

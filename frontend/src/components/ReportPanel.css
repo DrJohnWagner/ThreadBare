@@ -90,11 +90,3 @@
     font-size: 12px;
     color: var(--color-text-faint);
 }
-
-.report__fix {
-    margin-top: 16px;
-}
-
-.report__fixed-code {
-    margin-top: 16px;
-}

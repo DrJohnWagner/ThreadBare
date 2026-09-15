@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://threadbare.dev/schemas/report-finding.schema.json",
   "title": "ReportFinding",
-  "description": "One structured finding from the blind analyser agent, which sees only the serial reference, the parallel version, and the test harness — never PlantedBug data.",
+  "description": "One structured finding from the blind analyser agent, which sees only the serial reference, the parallel version, and the test harness — never PlantedFailure data.",
   "type": "object",
   "properties": {
     "typeKey": {

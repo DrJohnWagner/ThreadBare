@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/function-signature.schema.json",
+  "title": "FunctionSignature",
+  "description": "The callable shape of one generated C function, so agents and harness code downstream of the agent that wrote it can call it correctly without re-parsing source.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Exact C function name, e.g. histogram_serial."
+    },
+    "returnType": {
+      "type": "string",
+      "description": "C return type, e.g. 'void', 'long', 'double'."
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "C parameter type, e.g. 'const int *', 'long'."
+          },
+          "name": { "type": "string" }
+        },
+        "required": ["type", "name"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["name", "returnType", "parameters"],
+  "additionalProperties": false
+}

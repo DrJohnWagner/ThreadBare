@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/harness-output.schema.json",
+  "title": "HarnessOutput",
+  "description": "Structured output of the Harness agent: the harness.c source plus which check strategy it used, for the caller's own logging.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Complete harness.c source, including its own main()."
+    },
+    "checkStrategy": {
+      "type": "string",
+      "enum": ["differential", "scaling", "timeout"],
+      "description": "Which verification approach the harness uses, chosen from the planted failure's category (safety -> differential, performance -> scaling, liveness -> timeout)."
+    }
+  },
+  "required": ["code", "checkStrategy"],
+  "additionalProperties": false
+}

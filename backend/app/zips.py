@@ -15,8 +15,7 @@ def _write_run_files(zf: zipfile.ZipFile, run: Run, prefix: str = "") -> None:
     zf.writestr(f"{prefix}serial.c", run.serial_reference)
     zf.writestr(f"{prefix}parallel.c", run.parallel_version)
     zf.writestr(f"{prefix}harness.c", run.test_harness)
-    if run.fixed:
-        zf.writestr(f"{prefix}parallel_fixed.c", run.parallel_version_fixed)
+    zf.writestr(f"{prefix}parallel_fixed.c", run.parallel_version_fixed)
     zf.writestr(
         f"{prefix}request.json", run.request.model_dump_json(indent=2, by_alias=True)
     )
@@ -36,8 +35,7 @@ def build_history_zip(runs: list[Run]) -> bytes:
             {
                 "id": r.id,
                 "createdAt": r.created_at,
-                "plantedTypeKeys": [b.type_key for b in r.planted_bugs],
-                "fixed": r.fixed,
+                "plantedTypeKeys": [f.type_key for f in r.planted_failures],
             }
             for r in runs
         ]

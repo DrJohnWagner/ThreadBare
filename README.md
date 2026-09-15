@@ -1,6 +1,6 @@
 # ThreadBare
 
-Generates **parallel programs with deliberate concurrency bugs**, for teaching.
+Generates **parallel programs with deliberate concurrency failures**, for teaching.
 
 Give ThreadBare a starting point — source code, a URL, or a plain-English description of a
 computation — then choose a target language and threading model and pick which failure
@@ -13,12 +13,12 @@ modes to plant. A chain of LLM agents returns four artifacts:
 | **test harness** | drives both versions and compares them, so a planted failure is observed rather than asserted |
 | **report** | structured JSON — a list of findings from a separate LLM handed the three files above, each with a failure type, the line(s) it points at, and a short explanation |
 
-The report is written by an agent that **did not plant the bugs**. It sees only the serial
-code, the parallel code and the harness — the same evidence a student gets — which makes the
-report a finding rather than a transcript. The gap between what was planted and what was
-found is then information in its own right: a planted bug the analyser missed is either well
-hidden or not actually present, and a bug it found that nobody planted is a real defect the
-generator introduced by accident.
+The report is written by an agent that **did not plant the failures**. It sees only the
+serial code, the parallel code and the harness — the same evidence a student gets — which
+makes the report a finding rather than a transcript. The gap between what was planted and
+what was found is then information in its own right: a planted failure the analyser missed
+is either well hidden or not actually present, and something it found that nobody planted
+is a real defect the generator introduced by accident.
 
 Failure modes come from a **19-item taxonomy in three families** — Safety failures (the
 system violates some aspect of the specification), Performance failures (the system fails
@@ -39,8 +39,8 @@ is written to absorb them without restructuring.
 
 The audience is an **instructor building teaching examples** — programs with a known intended
 defect, a harness that demonstrates it, and an explanation to mark against. The saved-benchmark
-and coverage machinery is being built toward research use, evaluating bug-finding tools against
-a collection with known answers, but that is not what this version is for.
+and coverage machinery is being built toward research use, evaluating defect-finding tools
+against a collection with known answers, but that is not what this version is for.
 
 This README is written for students who are new to Python virtual environments and to
 React. Follow it top to bottom the first time you set the project up. After that, you'll
@@ -54,7 +54,7 @@ backend/                    Python API (FastAPI)
   app/routers/                 one module per resource: taxonomy, runs, dashboard
   app/schemas.py               Pydantic models mirroring schemas/*.schema.json
   app/store.py                 in-memory run storage — lost on restart, no database yet
-  app/fixtures.py              canned example bugs standing in for the real generator
+  app/agents/                   the six-agent generation pipeline (see AGENTS.md)
   requirements.txt            runtime Python dependencies
   requirements-dev.txt        requirements.txt + Black (the code formatter)
 frontend/                   React + TypeScript SPA (Vite)
@@ -268,11 +268,10 @@ agent that never saw what was planted. **History** and **Dashboard** show every 
 generated since the backend last restarted. Edit any file under `frontend/src/` and
 save; the page updates automatically without a manual refresh.
 
-Right now `POST /api/runs` returns one of six fixed example bugs (see
-`backend/app/fixtures.py`) rather than a real generated one — the pipeline described at
-the top of this README isn't built yet. Everything around it (the UI, the API contract,
-history, dashboard) is real and works against that stub the same way it will against the
-real generator later.
+`POST /api/runs` runs the real six-agent generation pipeline described in `AGENTS.md`
+(`backend/app/agents/`) — it calls a live model, so it needs `OPENAI_API_KEY` set
+(copy `.env.example` to `.env` and fill it in) and each run takes real time and costs
+real money.
 
 ## Code style
 

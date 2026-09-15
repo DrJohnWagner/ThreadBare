@@ -20,14 +20,5 @@ def get_run(run_id: str) -> Run | None:
     return _runs.get(run_id)
 
 
-def set_fixed(run_id: str, fixed: bool) -> Run | None:
-    run = _runs.get(run_id)
-    if run is None:
-        return None
-    updated = run.model_copy(update={"fixed": fixed})
-    _runs[run_id] = updated
-    return updated
-
-
 def clear_runs() -> None:
     _runs.clear()

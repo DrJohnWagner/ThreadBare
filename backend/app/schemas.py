@@ -54,10 +54,10 @@ class GenerationRequest(CamelModel):
     source_material: Optional[SourceMaterial] = None
 
 
-# --- planted-bug.schema.json / report-finding.schema.json ---------------------------
+# --- planted-failure.schema.json / report-finding.schema.json -----------------------
 
 
-class PlantedBug(CamelModel):
+class PlantedFailure(CamelModel):
     type_key: str
     implementation_note: str
 
@@ -79,9 +79,8 @@ class Run(CamelModel):
     parallel_version: str
     parallel_version_fixed: str
     test_harness: str
-    planted_bugs: list[PlantedBug]
+    planted_failures: list[PlantedFailure]
     report: list[ReportFinding]
-    fixed: bool = False
 
 
 # --- history-record.schema.json --------------------------------------------------------
@@ -93,7 +92,6 @@ class HistoryRecord(CamelModel):
     language: Literal["c-openmp"]
     requested_failure_modes: list[str]
     planted_type_keys: list[str]
-    fixed: bool
 
 
 # --- dashboard-stats.schema.json -------------------------------------------------------
@@ -107,14 +105,5 @@ class CategoryCounts(CamelModel):
 
 class DashboardStats(CamelModel):
     total_runs: int
-    fixed_count: int
-    fix_rate: Optional[float]
     by_category: CategoryCounts
     by_type: dict[str, int]
-
-
-# --- request bodies with no dedicated schema file -------------------------------------
-
-
-class PatchRunBody(CamelModel):
-    fixed: bool

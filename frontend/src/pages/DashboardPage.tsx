@@ -41,18 +41,6 @@ export function DashboardPage({ taxonomy, refreshToken }: DashboardPageProps) {
                             value={stats.totalRuns}
                             label="Runs generated"
                         />
-                        <StatCard
-                            value={stats.fixedCount}
-                            label="Fix Bugs requested"
-                        />
-                        <StatCard
-                            value={
-                                stats.fixRate === null
-                                    ? '—'
-                                    : `${Math.round(stats.fixRate * 100)}%`
-                            }
-                            label="Fix request rate"
-                        />
                     </div>
                     <div className="dashboard-page__breakdowns">
                         <BreakdownCard

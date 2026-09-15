@@ -16,17 +16,15 @@
     "plantedTypeKeys": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "What was actually planted — flattened from the full Run's plantedBugs, so the list view can render tags without fetching the full Run."
-    },
-    "fixed": { "type": "boolean" }
+      "description": "What was actually planted — flattened from the full Run's plantedFailures, so the list view can render tags without fetching the full Run."
+    }
   },
   "required": [
     "id",
     "createdAt",
     "language",
     "requestedFailureModes",
-    "plantedTypeKeys",
-    "fixed"
+    "plantedTypeKeys"
   ],
   "additionalProperties": false
 }
