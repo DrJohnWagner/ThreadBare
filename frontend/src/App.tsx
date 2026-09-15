@@ -18,7 +18,6 @@ const NAV_ITEMS: { key: NavKey; label: string }[] = [
 
 function App() {
     const [nav, setNav] = useState<NavKey>('lab')
-    const [error, setError] = useState<string | null>(null)
     const [dataRefresh, setDataRefresh] = useState(0)
     const {
         taxonomy,
@@ -54,12 +53,6 @@ function App() {
                 </div>
             </header>
 
-            {error && (
-                <div className="app-shell__error-banner">
-                    <div className="app-shell__error-banner-inner">{error}</div>
-                </div>
-            )}
-
             {taxonomyLoading && <p className="app-shell__loading">Loading…</p>}
             {taxonomyError && (
                 <div className="app-shell__error-banner">
@@ -75,7 +68,6 @@ function App() {
                         <LabPage
                             taxonomy={taxonomy}
                             onRunSaved={bumpDataRefresh}
-                            setError={setError}
                         />
                     )}
                     {nav === 'history' && (

@@ -12,11 +12,20 @@ interfaces should be generated, not maintained in parallel.
   `.json` file is real content, not a placeholder; both sides load it rather than
   hardcoding their own copy of the 19 items.
 - `generation-request.schema.json` — body of `POST /api/runs`.
-- `planted-bug.schema.json`, `report-finding.schema.json` — the two halves of the
+- `planted-failure.schema.json`, `report-finding.schema.json` — the two halves of the
   planted-vs-found comparison that's the point of the product.
 - `run.schema.json` — full generation result (`POST /api/runs`, `GET /api/runs/{id}`).
 - `history-record.schema.json` — lightweight list entry (`GET /api/runs`).
 - `dashboard-stats.schema.json` — pre-aggregated stats (`GET /api/dashboard`).
+- `function-signature.schema.json`, `function-output.schema.json`,
+  `computation-spec.schema.json`, `failure-planter-output.schema.json`,
+  `harness-output.schema.json`, `analyser-output.schema.json` — structured-output
+  schemas for the generation pipeline's agents (see `AGENTS.md` and
+  `backend/app/agents/`). `failure-planter-output.schema.json` and
+  `analyser-output.schema.json` reuse `planted-failure.schema.json` and
+  `report-finding.schema.json` for their array items rather than redefining that shape —
+  an agent's structured output is often literally "here's the array that becomes a field
+  on `Run`," not a new shape.
 
 ## Conventions
 
@@ -30,6 +39,11 @@ interfaces should be generated, not maintained in parallel.
   against the loaded taxonomy at the application level, on both sides.
 - `language` is `"const": "c-openmp"`, not an `enum` of one — makes it visible in a diff
   the day a second target is added.
+- The agent-output schemas (`function-output.schema.json` and friends) may need a
+  slightly relaxed projection when actually passed to OpenAI's Structured Outputs as
+  `response_format` — its strict mode doesn't support every keyword used here (e.g.
+  `minItems`). That's a wiring detail for whoever calls the API, not a reason to weaken
+  the canonical schemas here, which are also used for the backend's own validation.
 
 ## Intended usage (not wired up yet)
 

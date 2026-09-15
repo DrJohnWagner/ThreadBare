@@ -1,19 +1,9 @@
-from datetime import UTC, datetime
-from uuid import uuid4
-
 from fastapi import APIRouter, HTTPException, Response
 
 from .. import store
+from ..agents.pipeline import generate_run
 from ..conversions import to_history_record
-from ..fixtures import pick_fixture
-from ..schemas import (
-    GenerationRequest,
-    HistoryRecord,
-    PatchRunBody,
-    PlantedBug,
-    ReportFinding,
-    Run,
-)
+from ..schemas import GenerationRequest, HistoryRecord, Run
 from ..zips import build_history_zip, build_run_zip
 
 router = APIRouter()
@@ -21,30 +11,7 @@ router = APIRouter()
 
 @router.post("/api/runs", response_model=Run)
 def create_run(body: GenerationRequest) -> Run:
-    fixture = pick_fixture(body.failure_modes)
-    run = Run(
-        id=str(uuid4()),
-        created_at=datetime.now(UTC).isoformat(),
-        request=body,
-        serial_reference=fixture.serial_code,
-        parallel_version=fixture.buggy_code,
-        parallel_version_fixed=fixture.fixed_code,
-        test_harness=fixture.test_harness,
-        planted_bugs=[
-            PlantedBug(
-                type_key=fixture.type_key,
-                implementation_note=fixture.implementation_note,
-            )
-        ],
-        report=[
-            ReportFinding(
-                type_key=fixture.type_key,
-                lines=fixture.finding_lines,
-                explanation=fixture.explanation,
-            )
-        ],
-        fixed=False,
-    )
+    run = generate_run(body)
     store.add_run(run)
     return run
 
@@ -77,14 +44,6 @@ def get_run(run_id: str) -> Run:
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")
     return run
-
-
-@router.patch("/api/runs/{run_id}", response_model=HistoryRecord)
-def patch_run(run_id: str, body: PatchRunBody) -> HistoryRecord:
-    run = store.set_fixed(run_id, body.fixed)
-    if run is None:
-        raise HTTPException(status_code=404, detail="Run not found")
-    return to_history_record(run)
 
 
 @router.get("/api/runs/{run_id}/download")

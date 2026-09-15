@@ -62,9 +62,6 @@ export function HistoryRow({ record, taxonomy }: HistoryRowProps) {
                                 {labelForType(taxonomy, key)}
                             </Tag>
                         ))}
-                        {record.fixed && (
-                            <Tag color="var(--color-success)">Fixed</Tag>
-                        )}
                     </div>
                     <p className="history-row__timestamp">
                         {new Date(record.createdAt).toLocaleString()}
@@ -90,16 +87,8 @@ export function HistoryRow({ record, taxonomy }: HistoryRowProps) {
                                 Parallel version
                             </p>
                             <CodeBlock code={run.parallelVersion} />
-                            {run.fixed && (
-                                <>
-                                    <p className="history-row__label">
-                                        Fixed version
-                                    </p>
-                                    <CodeBlock
-                                        code={run.parallelVersionFixed}
-                                    />
-                                </>
-                            )}
+                            <p className="history-row__label">Fixed version</p>
+                            <CodeBlock code={run.parallelVersionFixed} />
                         </>
                     )}
                 </div>

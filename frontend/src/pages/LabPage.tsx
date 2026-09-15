@@ -3,7 +3,6 @@ import type { Taxonomy } from '../types/taxonomy'
 import type { GenerationRequest } from '../types/run'
 import { LANGUAGE } from '../types/run'
 import { useGenerateRun } from '../hooks/useGenerateRun'
-import { markFixed } from '../api/runs'
 import { runDownloadUrl } from '../api/downloadUrl'
 import { NumberBadge } from '../components/NumberBadge'
 import { CodeIcon, LinkIcon, TextIcon, ChevronIcon } from '../components/icons'
@@ -18,25 +17,17 @@ import './LabPage.css'
 interface LabPageProps {
     taxonomy: Taxonomy
     onRunSaved: () => void
-    setError: (message: string) => void
 }
 
-export function LabPage({ taxonomy, onRunSaved, setError }: LabPageProps) {
+export function LabPage({ taxonomy, onRunSaved }: LabPageProps) {
     const [sourceCode, setSourceCode] = useState('')
     const [sourceText, setSourceText] = useState('')
     const [sourceUrl, setSourceUrl] = useState('')
     const [selectedTypes, setSelectedTypes] = useState<string[]>([])
     const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
     const [showRequest, setShowRequest] = useState(false)
-    const [fixing, setFixing] = useState(false)
 
-    const {
-        run,
-        loading,
-        error: generateError,
-        generate,
-        setRun,
-    } = useGenerateRun()
+    const { run, loading, error: generateError, generate } = useGenerateRun()
 
     const allTypeKeys = useMemo(
         () =>
@@ -80,21 +71,6 @@ export function LabPage({ taxonomy, onRunSaved, setError }: LabPageProps) {
         onRunSaved()
     }
 
-    const handleFix = async () => {
-        if (!run) return
-        setFixing(true)
-        try {
-            await markFixed(run.id)
-            setRun({ ...run, fixed: true })
-            onRunSaved()
-        } catch {
-            setError('The fix was shown, but could not be saved.')
-            setRun({ ...run, fixed: true })
-        } finally {
-            setFixing(false)
-        }
-    }
-
     const tabs: Tab[] = run
         ? [
               {
@@ -115,14 +91,7 @@ export function LabPage({ taxonomy, onRunSaved, setError }: LabPageProps) {
               {
                   key: 'report',
                   label: 'Report',
-                  content: (
-                      <ReportPanel
-                          run={run}
-                          taxonomy={taxonomy}
-                          onFix={handleFix}
-                          fixing={fixing}
-                      />
-                  ),
+                  content: <ReportPanel run={run} taxonomy={taxonomy} />,
               },
           ]
         : []
@@ -131,7 +100,8 @@ export function LabPage({ taxonomy, onRunSaved, setError }: LabPageProps) {
         <div className="lab-page">
             <h1 className="lab-page__title">Lab</h1>
             <p className="lab-page__subtitle">
-                Request a benchmark with deliberately planted concurrency bugs.
+                Request a benchmark with deliberately planted concurrency
+                failures.
             </p>
 
             <div className="lab-page__layout">

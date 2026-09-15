@@ -1,4 +1,4 @@
-// Mirrors schemas/generation-request.schema.json, planted-bug.schema.json,
+// Mirrors schemas/generation-request.schema.json, planted-failure.schema.json,
 // report-finding.schema.json, run.schema.json, history-record.schema.json,
 // dashboard-stats.schema.json — see schemas/README.md.
 
@@ -17,7 +17,7 @@ export interface GenerationRequest {
     sourceMaterial: SourceMaterial | null
 }
 
-export interface PlantedBug {
+export interface PlantedFailure {
     typeKey: string
     implementationNote: string
 }
@@ -36,9 +36,8 @@ export interface Run {
     parallelVersion: string
     parallelVersionFixed: string
     testHarness: string
-    plantedBugs: PlantedBug[]
+    plantedFailures: PlantedFailure[]
     report: ReportFinding[]
-    fixed: boolean
 }
 
 export interface HistoryRecord {
@@ -47,7 +46,6 @@ export interface HistoryRecord {
     language: Language
     requestedFailureModes: string[]
     plantedTypeKeys: string[]
-    fixed: boolean
 }
 
 export interface CategoryCounts {
@@ -58,8 +56,6 @@ export interface CategoryCounts {
 
 export interface DashboardStats {
     totalRuns: number
-    fixedCount: number
-    fixRate: number | null
     byCategory: CategoryCounts
     byType: Record<string, number>
 }

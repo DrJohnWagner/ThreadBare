@@ -7,6 +7,5 @@ def to_history_record(run: Run) -> HistoryRecord:
         created_at=run.created_at,
         language=run.request.language,
         requested_failure_modes=run.request.failure_modes,
-        planted_type_keys=[b.type_key for b in run.planted_bugs],
-        fixed=run.fixed,
+        planted_type_keys=[f.type_key for f in run.planted_failures],
     )

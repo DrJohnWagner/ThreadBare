@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/function-output.schema.json",
+  "title": "FunctionOutput",
+  "description": "Structured output shared by the Serial Reference and Parallelizer agents: a single C function plus its callable signature. Identical shape for both — the only difference is which agent produced it.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Complete C source for the function (and any private helpers it needs). No main()."
+    },
+    "signature": { "$ref": "function-signature.schema.json" }
+  },
+  "required": ["code", "signature"],
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/analyser-output.schema.json",
+  "title": "AnalyserOutput",
+  "description": "Structured output of the Analyser agent: the report, exactly as stored on Run.report. The items are exactly ReportFinding.",
+  "type": "object",
+  "properties": {
+    "report": {
+      "type": "array",
+      "items": { "$ref": "report-finding.schema.json" }
+    }
+  },
+  "required": ["report"],
+  "additionalProperties": false
+}

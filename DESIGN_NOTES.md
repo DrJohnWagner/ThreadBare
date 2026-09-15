@@ -25,8 +25,8 @@ product decision — don't read it as scope.
 3. **Source-material input is inert.** The code/text/URL fields in Step 1 exist in the
    UI and get built into a request payload, but never affect which example is served.
    The real version needs this to actually drive generation.
-4. **Report framing.** Whatever replaces the current per-bug explanation should read
-   as a *finding* — distinct in voice and structure from the planted-bug metadata
+4. **Report framing.** Whatever replaces the current per-failure explanation should read
+   as a *finding* — distinct in voice and structure from the planted-failure metadata
    (title, type, difficulty). The gap between the two is supposed to carry information,
    per the README; collapsing them into one blurb loses that.
 

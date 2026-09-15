@@ -38,7 +38,7 @@ interface GenerationRequest {
   sourceMaterial?: { code?: string; text?: string; url?: string }
 }
 
-interface PlantedBug {
+interface PlantedFailure {
   typeKey: string                // TaxonomyItem key, ground truth
   implementationNote: string     // where/how it was inserted — never shown to the analyser
 }
@@ -55,11 +55,10 @@ interface Run {
   request: GenerationRequest
   serialReference: string
   parallelVersion: string
-  parallelVersionFixed: string   // corrected version, produced up front, revealed on click
+  parallelVersionFixed: string   // corrected version, produced up front alongside everything else
   testHarness: string
-  plantedBugs: PlantedBug[]
+  plantedFailures: PlantedFailure[]
   report: ReportFinding[]
-  fixed: boolean                 // has "Fix Bugs" been revealed for this run? starts false
 }
 
 interface HistoryRecord {        // lightweight — list view, no code bodies
@@ -67,21 +66,18 @@ interface HistoryRecord {        // lightweight — list view, no code bodies
   createdAt: string
   language: string
   requestedFailureModes: string[]  // what was asked for
-  plantedTypeKeys: string[]        // what was actually planted — flattened from PlantedBug[]
-  fixed: boolean
+  plantedTypeKeys: string[]        // what was actually planted — flattened from PlantedFailure[]
 }
 
 interface DashboardStats {
   totalRuns: number
-  fixedCount: number
-  fixRate: number | null           // null when totalRuns === 0, not 0 — "no data" isn't "0%"
   byCategory: Record<FailureCategory, number>
   byType: Record<string, number>   // taxonomy item key -> count
 }
 ```
 
-`matchesPlanted` (finding vs. ground truth) is computed client-side by comparing
-`matchedTypeKey` against `plantedBugs` — no need for the backend to pre-compute it.
+`matchesPlanted` (finding vs. ground truth) is computed client-side by comparing each
+finding's `typeKey` against `plantedFailures` — no need for the backend to pre-compute it.
 `DashboardStats` itself, unlike that comparison, *is* computed server-side — see below.
 
 Two fields from the mock are gone, not just flagged: `language` breakdowns and
@@ -94,13 +90,11 @@ outright rather than carried as an open question.
 
 ## API contract
 
-Implemented, as of `feat/frontend-and-stub-api`, backed by fixtures rather than a real
-generation pipeline — see `backend/app/fixtures.py`. `POST /api/runs` returns one of six
-canned examples (ported from `DESIGN.html`), picked by requested failure mode when one
-matches, random otherwise. Every other endpoint is fully real: in-memory store, real
-zip-building, real dashboard aggregation. Replacing the fixture logic inside
-`create_run` with an actual LLM chain is the only change needed to make this the real
-backend — the contract, storage, and every other route stay as they are.
+Implemented for real, as of `feat/backend-generation-pipeline` — `POST /api/runs`
+runs the full six-agent generation pipeline (`backend/app/agents/pipeline.py`; see
+`AGENTS.md`) against a live model and returns the assembled `Run`. Every other
+endpoint is fully real: in-memory store, real zip-building, real dashboard
+aggregation.
 
 Persistence: an in-memory dict of runs on the backend process (`backend/app/store.py`),
 lost on restart. No database for MVP. Enough to back History and Dashboard for real,
@@ -112,19 +106,18 @@ since a class session doesn't span a backend reboot.
 | `POST /api/runs`            | `GenerationRequest`    | `Run`                 | Invokes the full agent chain synchronously. The slow call. |
 | `GET /api/runs`             | —                      | `HistoryRecord[]`     | List for History page. |
 | `GET /api/runs/:id`         | —                      | `Run`                 | Expanding a History row. |
-| `PATCH /api/runs/:id`       | `{ fixed: true }`      | `HistoryRecord`       | Called when "Fix Bugs" is revealed — lets Dashboard's fix-rate reflect reality. |
 | `DELETE /api/runs`          | —                      | `204`                 | "Clear history." No per-row delete in v1, matching the mock. |
 | `GET /api/dashboard`        | —                      | `DashboardStats`      | Pre-aggregated. See below. |
 | `GET /api/runs/:id/download`| —                      | `application/zip`     | One run's artifacts. Replaces the mock's client-side zip builder. |
 | `GET /api/runs/export`      | —                      | `application/zip`     | All runs, one archive — "Export all as .zip" on History. |
 
-**No separate "fix" or "analyse" generation endpoint.** The fixed/corrected version and
-the report are both produced by the one `POST /api/runs` call; "Fix Bugs" reveals
-`Run.parallelVersionFixed`, already in hand from that response, and then fires
-`PATCH /api/runs/:id` in the background purely so the backend's own record is accurate
-for Dashboard/History — matching the mock's already-established pattern of treating this
-as best-effort ("shown, but couldn't be saved" is an acceptable outcome, not an error
-that blocks the reveal).
+**No separate "fix" or "analyse" generation endpoint.** The corrected version and the
+report are both produced by the one `POST /api/runs` call — `Run.parallelVersionFixed`
+is simply part of that response, shown in the UI alongside the buggy version rather than
+gated behind any "reveal" action. There used to be a `PATCH /api/runs/:id` endpoint and
+a `fixed` flag tracking whether a user had clicked to reveal it; both are retired — the
+UI feature they backed (a one-click Fix reveal, plus the Dashboard fix-rate stat it fed)
+was removed, and there was no reason to keep the flag around with nothing left to set it.
 
 **Dashboard is server-aggregated, not client-derived.** The backend already holds the
 full run list in memory; it's cheaper and more correct for it to compute
@@ -144,7 +137,7 @@ to the endpoint — no fetch-and-blob dance needed for a same-origin GET.
 `POST /api/runs` can plausibly take tens of seconds (it's a chain of LLM calls). MVP
 answer: a single synchronous request with a generic "Generating…" state, matching the
 mock's `loading` boolean. Staged progress (e.g. "Writing serial reference… → Planting
-bugs… → Building harness… → Running blind analysis…" via polling or SSE) is a real
+failures… → Building harness… → Running blind analysis…" via polling or SSE) is a real
 improvement but explicitly deferred — it needs a backend job/status model that doesn't
 exist yet, and CLAUDE.md's instruction to keep surface area small for a beginner team
 argues against building it before the plain version works.
@@ -156,12 +149,12 @@ frontend/src/
   api/
     client.ts               fetch wrapper: base URL, JSON parsing, error normalization
     taxonomy.ts              getTaxonomy — GET /api/taxonomy
-    runs.ts                  generateRun, listRuns, getRun, markFixed, clearRuns
+    runs.ts                  generateRun, listRuns, getRun, clearRuns
     dashboard.ts             getDashboardStats
     downloadUrl.ts           builds the href for the download-zip anchors — no fetch involved
   types/
     taxonomy.ts           TaxonomyItem, TaxonomyCategory, FailureCategory
-    run.ts                GenerationRequest, PlantedBug, ReportFinding, Run, HistoryRecord, DashboardStats
+    run.ts                GenerationRequest, PlantedFailure, ReportFinding, Run, HistoryRecord, DashboardStats
   lib/
     taxonomyLookup.ts       labelForType, categoryForType, labelForCategory, colorForCategory, softColorForCategory — the one place taxonomy lookups live, instead of duplicated per-component
   components/
@@ -174,7 +167,7 @@ frontend/src/
     HistoryRow.tsx, StatCard.tsx, BreakdownCard.tsx                 ported as-is
   pages/
     LabPage.tsx, HistoryPage.tsx, DashboardPage.tsx, AboutPage.tsx
-  App.tsx                    shell: brand, nav, error banner, page switch
+  App.tsx                    shell: brand, nav, taxonomy-load error, page switch
   index.css                  theme tokens as CSS custom properties (see Styling)
   main.tsx                   unchanged
 ```
@@ -206,8 +199,12 @@ surface area that rule exists to avoid for a team that has never used React. Ins
   and a four-page app with one slow mutation and three list/lookup reads doesn't need
   them. `useTaxonomy` runs once at the `App` level (the Lab page can't render its error
   picker without it) and is passed down, rather than every page re-fetching it.
-- Nav state and the global error banner live in `App.tsx` and are passed down one level
-  to whichever page is active — shallow enough that Context isn't justified yet.
+- Nav state lives in `App.tsx` and is passed down one level to whichever page is
+  active — shallow enough that Context isn't justified yet. There's no general-purpose
+  error banner anymore; `App.tsx` only surfaces one specific failure (the taxonomy
+  fetch, since nothing else can render without it) rather than a catch-all `error`/
+  `setError` threaded through every page. That generic version existed only to support
+  the Fix-reveal flow's error case, which no longer exists.
 
 ## Navigation
 
@@ -247,17 +244,19 @@ isn't a "bug" in the colloquial sense either. "Report" matches that.
 
 **Report tab** (`ReportPanel`) is the piece the mock is missing entirely. `Run.report` is
 structured JSON, not prose: a list of findings, each with a `typeKey`, one or more
-`lines` into `parallelVersion`, and a short `explanation` — mirroring how `PlantedBug`
+`lines` into `parallelVersion`, and a short `explanation` — mirroring how `PlantedFailure`
 already carries a `typeKey` and an `implementationNote`, so planted and found use the
 same vocabulary. The analyser's findings are shown first, in the analyser's own words,
 with no reference to what was planted — preserving the "guess before you look" moment.
-A second, separately-revealed section ("What was actually planted") shows `plantedBugs`
+A second, separately-revealed section ("What was actually planted") shows `plantedFailures`
 and highlights which findings matched. This keeps the mock's existing collapse-behind-a-
 toggle pattern (`BugListItem`'s "Why?" disclosure) but applies it to the planted/found
 seam instead of to a single canned explanation.
 
-"Fix Bugs" stays a reveal of `Run.parallelVersionFixed`, next to or inside this tab —
-no new request fires.
+`Run.parallelVersionFixed` is not shown on the Lab page at all — it's part of the
+`Run` object from the start, same as everything else, but there's no tab or reveal
+action for it here. It surfaces on the History page instead (see below), where it's
+always shown alongside the buggy version rather than gated behind any click.
 
 ### History
 
@@ -270,10 +269,10 @@ zip-building code at all.
 
 ### Dashboard
 
-In scope for MVP, not deferred — sourced from `GET /api/dashboard`. Stat tiles: total
-runs, fixed count, fix rate. Breakdown cards: by category, by taxonomy type. "By
-language" and "By difficulty" from the mock's version are both gone — see the note
-under `DashboardStats` above.
+In scope for MVP, not deferred — sourced from `GET /api/dashboard`. Stat tile: total
+runs. Breakdown cards: by category, by taxonomy type. "By language" and "By difficulty"
+from the mock's version are both gone — see the note under `DashboardStats` above. Fix
+count/rate are gone too, retired along with the Fix reveal feature they measured.
 
 ### About
 
@@ -285,7 +284,8 @@ it matches the README rather than contradicting it.
 
 - `POST /api/runs`: button-level loading state (already the mock's pattern), plus a
   distinct message for "no example matches your filters" vs. a genuine network/backend
-  failure (top-level error banner, also already the mock's pattern).
+  failure — both shown inline on the Lab page via `useGenerateRun`'s own `error` state,
+  not a global banner (see the note below on `App.tsx`).
 - No automatic retry/backoff. One manual retry (click Generate again) is enough for an
   MVP teaching tool — building retry logic here would be solving a problem nobody has yet.
 
@@ -295,10 +295,3 @@ No test suite for MVP beyond `tsc` (already wired into `npm run build`) and manu
 verification via `npm run dev`. Revisit with Vitest + React Testing Library only if the
 team decides it's worth the setup cost — not assumed here.
 
-## Open for confirmation
-
-- **Is the `PATCH /api/runs/:id` fix-tracking call worth having** for a fix-rate stat
-  that's a nice-to-have, not the product's core claim — versus just not tracking it and
-  dropping "fix rate" from `DashboardStats`. Leaning toward keeping it: it's a one-field
-  PATCH, and "which examples students most often need the answer for" seems like
-  genuinely useful instructor signal, not decoration.
