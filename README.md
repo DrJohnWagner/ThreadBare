@@ -6,12 +6,12 @@ Give ThreadBare a starting point — source code, a URL, or a plain-English desc
 computation — then choose a target language and threading model and pick which failure
 modes to plant. A chain of LLM agents returns four artifacts:
 
-| artifact | what it is |
-|---|---|
-| **serial reference** | the single-threaded implementation, and the oracle everything else is compared against |
-| **parallel version** | the same computation, multithreaded, carrying the failure modes you selected — with nothing in the code pointing at them |
-| **test harness** | drives both versions and compares them, so a planted failure is observed rather than asserted |
-| **report** | structured JSON — a list of findings from a separate LLM handed the three files above, each with a failure type, the line(s) it points at, and a short explanation |
+| artifact                   | what it is                                                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **serial reference** | the single-threaded implementation, and the oracle everything else is compared against                                                                              |
+| **parallel version** | the same computation, multithreaded, carrying the failure modes you selected — with nothing in the code pointing at them                                           |
+| **test harness**     | drives both versions and compares them, so a planted failure is observed rather than asserted                                                                       |
+| **report**           | structured JSON — a list of findings from a separate LLM handed the three files above, each with a failure type, the line(s) it points at, and a short explanation |
 
 The report is written by an agent that **did not plant the failures**. It sees only the
 serial code, the parallel code and the harness — the same evidence a student gets — which
@@ -269,9 +269,9 @@ generated since the backend last restarted. Edit any file under `frontend/src/` 
 save; the page updates automatically without a manual refresh.
 
 `POST /api/runs` runs the real six-agent generation pipeline described in `AGENTS.md`
-(`backend/app/agents/`) — it calls a live model, so it needs `OPENAI_API_KEY` set
-(copy `.env.example` to `.env` and fill it in) and each run takes real time and costs
-real money.
+(`backend/app/agents/`) — it calls a live model, so it needs `MODEL`, `PROVIDER`, and
+`API_KEY` set (copy `.env.example` to `.env` and fill it in) and each run takes real
+time and costs real money.
 
 ## Code style
 

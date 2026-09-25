@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Response
 
 from .. import store
 from ..agents.pipeline import generate_run
+from ..agents.runner import AgentCallError
 from ..conversions import to_history_record
 from ..schemas import GenerationRequest, HistoryRecord, Run
 from ..zips import build_history_zip, build_run_zip
@@ -11,7 +12,10 @@ router = APIRouter()
 
 @router.post("/api/runs", response_model=Run)
 def create_run(body: GenerationRequest) -> Run:
-    run = generate_run(body)
+    try:
+        run = generate_run(body)
+    except AgentCallError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     store.add_run(run)
     return run
 

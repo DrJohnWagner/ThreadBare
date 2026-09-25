@@ -12,6 +12,12 @@ ourselves — the same thing `.parse()` claims to do, just visible and under our
 control. Kept even after moving to OpenAI directly, since it's strictly more visible
 on failure and costs nothing extra.
 
+Only OpenAI enforces a `json_schema` response_format. Moonshot's Kimi ignores it and
+replies in YAML-like `key: value` text; even in `json_object` mode it sometimes wraps
+the JSON in a ```json fence or adds prose around it. So for any provider other than
+OpenAI the schema goes into the system prompt, the request uses `json_object` mode,
+and the first JSON object in the reply is parsed, ignoring whatever surrounds it.
+
 Does not pass `temperature` — gpt-5-nano rejects any value other than its default (1)
 with a 400. If a future model swap needs per-agent temperature control again, it has
 to come back as a parameter here, gated on whether the configured model supports it.
@@ -21,7 +27,7 @@ import json
 
 from pydantic import BaseModel, ValidationError
 
-from .config import MODEL, get_client
+from .config import MODEL, PROVIDER, get_client
 
 
 class AgentCallError(RuntimeError):
@@ -59,27 +65,48 @@ def _schema_for(output_model: type[BaseModel]) -> dict:
     return schema
 
 
+def extract_json(content: str) -> object:
+    """Parse the first JSON object in a reply, ignoring any text or ``` fence around it.
+
+    Raises json.JSONDecodeError if the reply contains no parseable object.
+    """
+    start = content.find("{")
+    if start == -1:
+        raise json.JSONDecodeError("no JSON object in reply", content, 0)
+    data, _ = json.JSONDecoder().raw_decode(content, start)
+    return data
+
+
 def call_agent[T: BaseModel](
     *,
     system_prompt: str,
     user_prompt: str,
     output_model: type[T],
 ) -> T:
-    client = get_client()
-    completion = client.chat.completions.create(
+    schema = _schema_for(output_model)
+    if PROVIDER == "openai":
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": output_model.__name__,
+                "schema": schema,
+                "strict": True,
+            },
+        }
+    else:
+        system_prompt += (
+            "\n\nRespond with a single JSON object that validates against this JSON "
+            "Schema, and nothing else:\n" + json.dumps(schema)
+        )
+        response_format = {"type": "json_object"}
+
+    completion = get_client().chat.completions.create(
         model=MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": output_model.__name__,
-                "schema": _schema_for(output_model),
-                "strict": True,
-            },
-        },
+        response_format=response_format,
     )
 
     choice = completion.choices[0]
@@ -92,9 +119,12 @@ def call_agent[T: BaseModel](
         )
 
     try:
-        data = json.loads(message.content)
+        data = extract_json(message.content)
     except json.JSONDecodeError as exc:
-        raise AgentCallError(f"model response was not valid JSON: {exc}") from exc
+        raise AgentCallError(
+            f"model response was not valid JSON: {exc}; "
+            f"reply began: {message.content[:300]!r}"
+        ) from exc
 
     try:
         return output_model.model_validate(data)

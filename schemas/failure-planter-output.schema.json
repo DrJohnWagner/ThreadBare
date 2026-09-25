@@ -11,10 +11,13 @@
     },
     "plantedFailures": {
       "type": "array",
-      "items": { "$ref": "planted-failure.schema.json" },
-      "minItems": 1
+      "items": { "$ref": "planted-failure.schema.json" }
+    },
+    "declineReason": {
+      "type": "string",
+      "description": "Empty when failures were planted. Otherwise why the requested failure mode could not be planted in this computation; plantedFailures is then empty."
     }
   },
-  "required": ["code", "plantedFailures"],
+  "required": ["code", "plantedFailures", "declineReason"],
   "additionalProperties": false
 }

@@ -34,6 +34,11 @@ instructions or output except what is explicitly included below, and no other st
 sees yours. Do exactly the job described below and nothing else."""
 
 
+# How every generated example is compiled. The Harness writes it into harness.c's
+# header; the Failure Planter needs it because -O2 deletes code whose result is unused.
+BUILD_COMMAND = "gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness"
+
+
 def format_taxonomy() -> str:
     """Render the full taxonomy (19 items, 3 categories) as JSON text for a prompt."""
     taxonomy = get_taxonomy()

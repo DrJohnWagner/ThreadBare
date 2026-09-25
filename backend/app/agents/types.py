@@ -107,6 +107,7 @@ class FailurePlanterOutput(CamelModel):
 
     code: str
     planted_failures: list[PlantedFailure]
+    decline_reason: str
 
 
 # --- harness-output.schema.json -------------------------------------------------------

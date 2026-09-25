@@ -1,11 +1,11 @@
 # AGENTS.md — the generation pipeline
 
 Design for the LLM agents that implement `POST /api/runs` for real. Uses the OpenAI
-Python SDK (`backend/requirements.txt`) against the OpenAI API directly, model
-`gpt-5-nano`. The prompt text and typed shapes below are implemented in
-`backend/app/agents/` — one module per agent, plus `shared.py` (the context every
-prompt repeats), `types.py` (the Pydantic models), `runner.py` (the shared call
-mechanism), and `pipeline.py` (the orchestrator wired into
+Python SDK (`backend/requirements.txt`) pointed at Moonshot AI's Kimi API (an
+OpenAI-compatible endpoint), model `kimi-k2.7-code`. The prompt text and typed shapes
+below are implemented in `backend/app/agents/` — one module per agent, plus
+`shared.py` (the context every prompt repeats), `types.py` (the Pydantic models),
+`runner.py` (the shared call mechanism), and `pipeline.py` (the orchestrator wired into
 `backend/app/routers/runs.py`). This document should always match that code exactly; if
 they ever disagree, the code is what actually runs, so fix this file, not the other way
 around.
@@ -17,17 +17,18 @@ loops. Each one does one job, hands off a typed result, and is done.
 `.chat.completions.parse()` convenience method: empirically, when this project was
 calling OpenRouter instead of OpenAI directly, `.parse()` silently returned
 `message.parsed = None` — no exception, no `.refusal` — even when the model's raw
-`message.content` was valid JSON that matched the schema exactly. Kept even after
-moving to OpenAI directly, since it's strictly more visible on failure. Instead,
+`message.content` was valid JSON that matched the schema exactly. Kept regardless of
+which provider is configured, since it's strictly more visible on failure. Instead,
 `call_agent()` calls `.chat.completions.create()` with a plain `response_format` JSON
 Schema built from the output model (a hint to the model, not something the code trusts
 blindly), then parses and validates the returned text itself with `json.loads()` +
 `Model.model_validate()`.
 
-None of the agents set `temperature` — `gpt-5-nano` rejects any value other than its
-default (1) with a 400. Every "Model notes" section below that says "low temperature"
-or "moderate temperature" describes intent from before the model was pinned down; it
-isn't a knob this pipeline currently turns.
+None of the agents set `temperature` — it was dropped when a prior model (`gpt-5-nano`)
+rejected any value other than its default (1) with a 400, and hasn't been reintroduced
+since. Every "Model notes" section below that says "low temperature" or "moderate
+temperature" describes intent from before the model was pinned down; it isn't a knob
+this pipeline currently turns.
 
 Each agent call is independent and stateless: there is no conversation history, and no
 agent's prompt has seen any other agent's prompt or output except what's explicitly
@@ -470,8 +471,10 @@ lines).
 **Inputs:** both signatures, `ComputationSpec`, the planted-failure metadata (the
 prompt is given each failure's `category` explicitly, looked up via
 `taxonomy.get_category_for_type` before the call — the Harness agent is never given the
-full taxonomy). **Output:** `HarnessOutput` (code + which check strategy it used, for
-logging).
+full taxonomy). Raises `ValueError` before calling the model at all if a `typeKey`
+doesn't resolve to a real taxonomy category, or if the planted failures span more than
+one category — the prompt only knows how to pick one check strategy per run.
+**Output:** `HarnessOutput` (code + which check strategy it used, for logging).
 
 **Model notes.** Mostly mechanical once the strategy is chosen. Moderate model, low
 temperature.
@@ -513,7 +516,7 @@ Requirements:
 
    /* harness.c — <differential|scaling|timeout> driver for <computation name> (generated)
     *
-    *   build: gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness [-lm]
+    *   build: gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
     *   run:   OMP_NUM_THREADS=<n> ./harness [--flags]
     */
 
@@ -532,25 +535,38 @@ the same result on every run.
 ground truth, then call the parallel version across repetitions (a --reps flag,
 default 15-30), comparing its full output against the reference each time and
 printing a "[check]" line reporting the first point of divergence whenever they
-mismatch. Choose a problem size (a --n flag with a sensible default) large enough
-that the failure actually manifests within those repetitions.
-   - Category "performance": use a SCALING check. Time the serial reference once,
-then time the parallel version at increasing thread counts (1, 2, 4, ... up to
+mismatch. Default the problem size (a --n flag) to the largest value in the
+computation specification's problemSizes, unless that's impractically slow for the
+repetition count above — that field was already chosen to make the failure
+observable within a few seconds.
+   - Category "performance": use a SCALING check. Before timing anything, run one
+untimed warmup pass over the input (call the kernel once and discard the result, or
+explicitly touch every element of the input arrays) so first-touch page faults and
+cold-cache costs land outside the measurements — otherwise the serial baseline, which
+runs first, absorbs that one-time cost and the apparent speedup is inflated by it,
+not by anything the parallel version actually did. Then time the serial reference
+once, then time the parallel version at increasing thread counts (1, 2, 4, ... up to
 omp_get_max_threads()), printing a "[scale]" line per thread count with elapsed time,
 speedup, and efficiency. Do one light correctness check only, since the output
-should already be correct — the point is that it's slow, not wrong. Choose a numeric
-verdict threshold appropriate to how severe this specific failure mode's slowdown
-should be.
+should already be correct — the point is that it's slow, not wrong. Base the
+pass/fail verdict on parallel efficiency (speedup ÷ thread count) at the highest
+thread count tested, not on absolute elapsed time — efficiency is machine-independent,
+elapsed time isn't. Choose a numeric efficiency threshold appropriate to how severe
+this specific failure mode's slowdown should be.
    - Category "liveness": the parallel call may hang forever and never return. Run
 it under a hard wall-clock timeout (alarm() or a watchdog thread) and treat hitting
 that timeout itself as the failure signal — a differential or scaling check alone
 would just hang the whole harness process.
 5. End with exactly one line: printf("[verdict] %s\n", failures ? "<CODE> exposed"
-: "<pass message>"); and return 1 if the failure was detected, 0 otherwise. Derive
-<CODE> yourself as SAFE-NN, PERF-NN, or LIVE-NN from the failure's category — NN only
-needs to be unique within this one file, not globally.
+: "<pass message>"); and return 1 if the failure was detected, 0 otherwise. Set
+<CODE> to the category's prefix — SAFE, PERF, or LIVE — followed by a two-digit
+number you choose, e.g. "LIVE-01"; never print the literal characters "NN". Use that
+exact same <CODE> in both the exposed-branch and the pass-branch message, e.g.
+"LIVE-01 exposed" / "LIVE-01 not triggered".
 6. The file must compile cleanly under the exact build line you printed in the
-header comment. Add -lm to that line if the computation needs libm.
+header comment. Add -lm to that line if the computation needs libm — spell it out
+when it's needed and omit it entirely otherwise; never print literal square brackets
+around it.
 
 Respond with exactly two fields: "code" (the complete harness.c source) and
 "checkStrategy" (whichever of "differential", "scaling", or "timeout" you actually
@@ -676,11 +692,14 @@ Identify every concurrency defect you can find in the parallel version.
 
 ## Resolved
 
-- **Model & API access.** `backend/app/agents/config.py` — OpenRouter (an
-  OpenAI-compatible API), key in a local, gitignored `.env` as `OPENROUTER_API_KEY`
-  (see `.env.example`), loaded via `python-dotenv`. All six agents currently share one
-  model, `agents.config.MODEL` (default `nvidia/nemotron-3.5-lightning:free`,
-  overridable via `THREADBARE_MODEL`) — differentiating by agent (see "Model tiers"
+- **Model & API access.** `backend/app/agents/config.py` reads exactly three
+  variables from a local, gitignored `.env` (see `.env.example`), loaded via
+  `python-dotenv`: `MODEL` (the model name), `API_KEY` (that provider's key), and
+  `PROVIDER` (which base URL to send it to, looked up in config.py's
+  `_PROVIDER_BASE_URLS` — currently `openai`, `openrouter`, or `moonshot`). Swapping
+  provider, model, or key is a `.env` edit, never a code change. Currently configured
+  for Moonshot AI's Kimi API (an OpenAI-compatible API), model `kimi-k2.7-code`. All
+  six agents currently share one model — differentiating by agent (see "Model tiers"
   below) is still open, this just establishes that the plumbing exists.
 - **`ComputationSpec.name` validity.** Enforced in Python, not the schema —
   `agents/types.py`'s `sanitize_computation_name()`, run via a Pydantic
