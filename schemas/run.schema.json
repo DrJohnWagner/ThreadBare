@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/run.schema.json",
+  "title": "Run",
+  "description": "Full record of one generation: the request plus all four artifacts plus planted/found failure data. Returned by POST /api/runs and GET /api/runs/{id}.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "request": { "$ref": "generation-request.schema.json" },
+    "serialReference": {
+      "type": "string",
+      "description": "Artifact 1: single-threaded implementation, the oracle."
+    },
+    "parallelVersion": {
+      "type": "string",
+      "description": "Artifact 2: multithreaded, carries the planted failures, no comments pointing at them."
+    },
+    "parallelVersionFixed": {
+      "type": "string",
+      "description": "Corrected version, produced up front alongside everything else — always present, not gated behind any reveal flag."
+    },
+    "testHarness": {
+      "type": "string",
+      "description": "Artifact 3: drives both versions and compares them."
+    },
+    "plantedFailures": {
+      "type": "array",
+      "items": { "$ref": "planted-failure.schema.json" }
+    },
+    "report": {
+      "type": "array",
+      "items": { "$ref": "report-finding.schema.json" },
+      "description": "Artifact 4, from the blind analyser. Compare against plantedFailures to see what was found vs. planted — that comparison is computed by the client, not stored here."
+    }
+  },
+  "required": [
+    "id",
+    "createdAt",
+    "request",
+    "serialReference",
+    "parallelVersion",
+    "parallelVersionFixed",
+    "testHarness",
+    "plantedFailures",
+    "report"
+  ],
+  "additionalProperties": false
+}

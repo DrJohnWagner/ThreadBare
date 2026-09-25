@@ -1,0 +1,158 @@
+{
+  "categories": [
+    {
+      "key": "safety",
+      "label": "Safety failures",
+      "blurb": "The system violates some aspect of the specification.",
+      "items": [
+        {
+          "key": "incorrect-synchronization",
+          "label": "Incorrect synchronization",
+          "category": "safety",
+          "summary": "Missing, misplaced, or wrongly-scoped sync.",
+          "description": "Required synchronization is missing, misplaced, or incorrectly scoped. Includes race conditions, incorrect atomicity assumptions, unsafe publication, and incorrect memory-ordering assumptions."
+        },
+        {
+          "key": "incorrect-task-partitioning",
+          "label": "Incorrect task partitioning or scheduling",
+          "category": "safety",
+          "summary": "Work skipped, duplicated, or mis-ordered.",
+          "description": "Work is skipped, duplicated, assigned to overlapping output regions, or executed in an order that violates dependencies."
+        },
+        {
+          "key": "incorrect-reductions",
+          "label": "Incorrect reductions",
+          "category": "safety",
+          "summary": "Partial results combined the wrong way.",
+          "description": "Partial results are lost, counted multiple times, combined incorrectly, or combined in an order that violates required numerical accuracy or reproducibility."
+        },
+        {
+          "key": "incorrect-dependency-assumptions",
+          "label": "Incorrect dependency assumptions",
+          "category": "safety",
+          "summary": "Iterations assumed independent aren't.",
+          "description": "Tasks or loop iterations assumed to be independent actually depend on the results or side effects of other tasks."
+        },
+        {
+          "key": "unsafe-resource-lifetime",
+          "label": "Unsafe object or resource lifetime",
+          "category": "safety",
+          "summary": "Access after free, move, or close.",
+          "description": "A worker accesses an object after it has been freed, moved, resized, closed, or otherwise invalidated by another worker."
+        },
+        {
+          "key": "thread-unsafe-components",
+          "label": "Use of thread-unsafe components",
+          "category": "safety",
+          "summary": "A component used outside its safe pattern.",
+          "description": "A library, API, data structure, or runtime service is used concurrently even though it does not support the relevant access pattern."
+        },
+        {
+          "key": "incorrect-error-handling",
+          "label": "Incorrect error or cancellation handling",
+          "category": "safety",
+          "summary": "Failures lost, cancellation leaves a mess.",
+          "description": "Worker failures are lost or ignored, partial updates violate invariants, or cancellation leaves work and resources in an inconsistent state."
+        },
+        {
+          "key": "unintended-nondeterminism",
+          "label": "Unintended nondeterminism",
+          "category": "safety",
+          "summary": "Relies on an order that isn't guaranteed.",
+          "description": "The program incorrectly relies on a particular execution order, result order, or timing relationship that the parallel runtime does not guarantee."
+        }
+      ]
+    },
+    {
+      "key": "performance",
+      "label": "Performance failures",
+      "blurb": "The system fails to deliver the expected latency, throughput, efficiency, speedup, or scalability.",
+      "items": [
+        {
+          "key": "excessive-synchronization",
+          "label": "Excessive synchronization",
+          "category": "performance",
+          "summary": "More locking than necessary.",
+          "description": "Locks, atomics, barriers, memory fences, or other coordination operations are used more frequently, or with stronger guarantees, than necessary — serializing execution and increasing coherence overhead."
+        },
+        {
+          "key": "poor-task-partitioning-scheduling",
+          "label": "Poor task partitioning or scheduling",
+          "category": "performance",
+          "summary": "Uneven work causes idle workers.",
+          "description": "Work is divided too unevenly, tasks are too fine-grained, or the scheduling policy poorly matches the workload, causing load imbalance, idle workers, or excessive scheduling overhead."
+        },
+        {
+          "key": "oversubscription",
+          "label": "Oversubscription",
+          "category": "performance",
+          "summary": "More workers than the hardware can host.",
+          "description": "The program creates more runnable workers than the available hardware can efficiently support, causing context switching, cache disruption, and scheduler overhead."
+        },
+        {
+          "key": "memory-bottlenecks",
+          "label": "Memory bottlenecks",
+          "category": "performance",
+          "summary": "Poor locality or bandwidth limits.",
+          "description": "The program suffers from poor locality, memory-bandwidth saturation, excessive cache-coherence traffic, or NUMA-unaware data placement, so adding threads provides little or no speedup."
+        },
+        {
+          "key": "shared-resource-contention",
+          "label": "Shared-resource contention",
+          "category": "performance",
+          "summary": "Workers queue for a bounded resource.",
+          "description": "Workers compete for allocators, I/O devices, network bandwidth, database connections, GPU queues, or other bounded resources."
+        },
+        {
+          "key": "insufficient-parallelism",
+          "label": "Insufficient useful parallelism",
+          "category": "performance",
+          "summary": "Not enough independent work to scale.",
+          "description": "Serial bottlenecks, limited available concurrency, or an unsuitable parallel algorithm prevent the program from scaling (includes Amdahl's law limitations)."
+        }
+      ]
+    },
+    {
+      "key": "liveness",
+      "label": "Liveness failures",
+      "blurb": "A required event or state is never eventually reached.",
+      "items": [
+        {
+          "key": "deadlock",
+          "label": "Deadlock",
+          "category": "liveness",
+          "summary": "Workers wait on each other forever.",
+          "description": "Workers wait indefinitely for locks, resources, messages, or events that cannot occur because of a circular or otherwise unsatisfiable dependency."
+        },
+        {
+          "key": "livelock",
+          "label": "Livelock",
+          "category": "liveness",
+          "summary": "Busy, but never actually progressing.",
+          "description": "Workers continue executing and reacting to one another but repeatedly retry, back off, or discard work without making useful progress."
+        },
+        {
+          "key": "starvation",
+          "label": "Starvation",
+          "category": "liveness",
+          "summary": "One worker never gets its turn.",
+          "description": "A worker or task is indefinitely denied CPU time, access to a lock, access to a resource, or an opportunity to perform required work."
+        },
+        {
+          "key": "incorrect-termination-detection",
+          "label": "Incorrect termination detection",
+          "category": "liveness",
+          "summary": "Stops too early, or waits too long.",
+          "description": "The program either waits after all work has finished or declares completion while outstanding work can still generate additional work."
+        },
+        {
+          "key": "broken-progress-assumptions",
+          "label": "Broken progress assumptions",
+          "category": "liveness",
+          "summary": "Assumes fairness the runtime won't give.",
+          "description": "The algorithm assumes fairness, prompt scheduling, eventual lock acquisition, or guaranteed progress that the runtime or synchronization mechanism does not provide."
+        }
+      ]
+    }
+  ]
+}

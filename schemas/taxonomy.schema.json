@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/taxonomy.schema.json",
+  "title": "Taxonomy",
+  "description": "Shape of taxonomy.json — the 19-item failure-mode taxonomy in three families (Safety, Performance, Liveness failures). This file validates the shape; taxonomy.json in this same directory is the canonical content. Load taxonomy.json, don't re-list its items anywhere else.",
+  "type": "object",
+  "properties": {
+    "categories": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/category" },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+  "required": ["categories"],
+  "additionalProperties": false,
+  "$defs": {
+    "failureCategoryKey": {
+      "type": "string",
+      "enum": ["safety", "performance", "liveness"]
+    },
+    "category": {
+      "type": "object",
+      "properties": {
+        "key": { "$ref": "#/$defs/failureCategoryKey" },
+        "label": { "type": "string" },
+        "blurb": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/taxonomyItem" },
+          "minItems": 1
+        }
+      },
+      "required": ["key", "label", "blurb", "items"],
+      "additionalProperties": false
+    },
+    "taxonomyItem": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable identifier. Referenced by GenerationRequest.failureModes, PlantedFailure.typeKey, ReportFinding.typeKey, HistoryRecord.plantedTypeKeys, and DashboardStats.byType keys."
+        },
+        "label": { "type": "string" },
+        "category": { "$ref": "#/$defs/failureCategoryKey" },
+        "summary": { "type": "string", "description": "One line, always visible in the picker." },
+        "description": { "type": "string", "description": "Full text, shown on hover/expand." }
+      },
+      "required": ["key", "label", "category", "summary", "description"],
+      "additionalProperties": false
+    }
+  }
+}

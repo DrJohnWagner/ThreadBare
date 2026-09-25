@@ -1,0 +1,1531 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+
+/* ============================================================================
+   BugForge — a bug-finder / code-debugging lab for parallel programs.
+
+   Light mode, baby-blue theme. Pick error categories (Incorrect / Slow /
+   Non-terminating), optionally supply your own source material, and Generate
+   a controlled, pre-validated buggy program with a bug list, a test harness,
+   and a one-click "Fix Bugs" reveal. Every run is saved to History and can
+   be exported as a .zip.
+   ========================================================================= */
+
+const C = {
+  bg: "#EAF6FE",
+  surface: "#FFFFFF",
+  surface2: "#F3FAFF",
+  border: "#CFE7F5",
+  borderStrong: "#9FCFEA",
+  text: "#16232E",
+  textMuted: "#54697A",
+  textFaint: "#8AA0AF",
+  accent: "#2E9BD6",
+  accentHover: "#2789BE",
+  accentSoft: "#DEF1FC",
+  incorrect: "#D9633F",
+  incorrectSoft: "#FBE9E3",
+  slow: "#2E9482",
+  slowSoft: "#E1F4EF",
+  nonterminating: "#8A5FC7",
+  nonterminatingSoft: "#EFE7FA",
+  success: "#2E9E63",
+  successSoft: "#E4F7EC",
+  danger: "#D6524A",
+  dangerSoft: "#FBEAE9",
+};
+
+/* ----------------------------------------------------------------------- */
+/* Data model                                                               */
+/* ----------------------------------------------------------------------- */
+
+const LANGUAGES = ["C/C++ with OpenMP"];
+
+const CATEGORIES = {
+  incorrect: {
+    label: "Incorrect",
+    color: C.incorrect,
+    soft: C.incorrectSoft,
+    blurb: "The program produces wrong results.",
+  },
+  slow: {
+    label: "Slow",
+    color: C.slow,
+    soft: C.slowSoft,
+    blurb: "The program has the required semantics but runs or scales poorly.",
+  },
+  nonterminating: {
+    label: "Non-terminating",
+    color: C.nonterminating,
+    soft: C.nonterminatingSoft,
+    blurb: "The program fails to terminate or make progress.",
+  },
+};
+const CATEGORY_ORDER = ["incorrect", "slow", "nonterminating"];
+
+const BUG_TYPES = [
+  { key: "incorrect-synchronization", label: "Incorrect synchronization", category: "incorrect",
+    summary: "Missing, misplaced, or wrongly-scoped sync.",
+    description: "Required synchronization is missing, misplaced, or incorrectly scoped. Includes race conditions, incorrect atomicity assumptions, unsafe publication, and incorrect memory-ordering assumptions." },
+  { key: "incorrect-task-partitioning", label: "Incorrect task partitioning or scheduling", category: "incorrect",
+    summary: "Work skipped, duplicated, or mis-ordered.",
+    description: "Work is skipped, duplicated, assigned to overlapping output regions, or executed in an order that violates dependencies." },
+  { key: "incorrect-reductions", label: "Incorrect reductions", category: "incorrect",
+    summary: "Partial results combined the wrong way.",
+    description: "Partial results are lost, counted multiple times, combined incorrectly, or combined in an order that violates required numerical accuracy or reproducibility." },
+  { key: "incorrect-dependency-assumptions", label: "Incorrect dependency assumptions", category: "incorrect",
+    summary: "Iterations assumed independent aren't.",
+    description: "Tasks or loop iterations assumed to be independent actually depend on the results or side effects of other tasks." },
+  { key: "unsafe-resource-lifetime", label: "Unsafe object or resource lifetime", category: "incorrect",
+    summary: "Access after free, move, or close.",
+    description: "A worker accesses an object after it has been freed, moved, resized, closed, or otherwise invalidated by another worker." },
+  { key: "thread-unsafe-components", label: "Use of thread-unsafe components", category: "incorrect",
+    summary: "A component used outside its safe pattern.",
+    description: "A library, API, data structure, or runtime service is used concurrently even though it does not support the relevant access pattern." },
+  { key: "incorrect-error-handling", label: "Incorrect error or cancellation handling", category: "incorrect",
+    summary: "Failures lost, cancellation leaves a mess.",
+    description: "Worker failures are lost or ignored, partial updates violate invariants, or cancellation leaves work and resources in an inconsistent state." },
+  { key: "unintended-nondeterminism", label: "Unintended nondeterminism", category: "incorrect",
+    summary: "Relies on an order that isn't guaranteed.",
+    description: "The program incorrectly relies on a particular execution order, result order, or timing relationship that the parallel runtime does not guarantee." },
+
+  { key: "excessive-synchronization", label: "Excessive synchronization", category: "slow",
+    summary: "More locking than necessary.",
+    description: "Locks, atomics, barriers, memory fences, or other coordination operations are used more frequently, or with stronger guarantees, than necessary — serializing execution and increasing coherence overhead." },
+  { key: "poor-task-partitioning-scheduling", label: "Poor task partitioning or scheduling", category: "slow",
+    summary: "Uneven work causes idle workers.",
+    description: "Work is divided too unevenly, tasks are too fine-grained, or the scheduling policy poorly matches the workload, causing load imbalance, idle workers, or excessive scheduling overhead." },
+  { key: "oversubscription", label: "Oversubscription", category: "slow",
+    summary: "More workers than the hardware can host.",
+    description: "The program creates more runnable workers than the available hardware can efficiently support, causing context switching, cache disruption, and scheduler overhead." },
+  { key: "memory-bottlenecks", label: "Memory bottlenecks", category: "slow",
+    summary: "Poor locality or bandwidth limits.",
+    description: "The program suffers from poor locality, memory-bandwidth saturation, excessive cache-coherence traffic, or NUMA-unaware data placement, so adding threads provides little or no speedup." },
+  { key: "shared-resource-contention", label: "Shared-resource contention", category: "slow",
+    summary: "Workers queue for a bounded resource.",
+    description: "Workers compete for allocators, I/O devices, network bandwidth, database connections, GPU queues, or other bounded resources." },
+  { key: "insufficient-parallelism", label: "Insufficient useful parallelism", category: "slow",
+    summary: "Not enough independent work to scale.",
+    description: "Serial bottlenecks, limited available concurrency, or an unsuitable parallel algorithm prevent the program from scaling (includes Amdahl's law limitations)." },
+
+  { key: "deadlock", label: "Deadlock", category: "nonterminating",
+    summary: "Workers wait on each other forever.",
+    description: "Workers wait indefinitely for locks, resources, messages, or events that cannot occur because of a circular or otherwise unsatisfiable dependency." },
+  { key: "livelock", label: "Livelock", category: "nonterminating",
+    summary: "Busy, but never actually progressing.",
+    description: "Workers continue executing and reacting to one another but repeatedly retry, back off, or discard work without making useful progress." },
+  { key: "starvation", label: "Starvation", category: "nonterminating",
+    summary: "One worker never gets its turn.",
+    description: "A worker or task is indefinitely denied CPU time, access to a lock, access to a resource, or an opportunity to perform required work." },
+  { key: "incorrect-termination-detection", label: "Incorrect termination detection", category: "nonterminating",
+    summary: "Stops too early, or waits too long.",
+    description: "The program either waits after all work has finished or declares completion while outstanding work can still generate additional work." },
+  { key: "broken-progress-assumptions", label: "Broken progress assumptions", category: "nonterminating",
+    summary: "Assumes fairness the runtime won't give.",
+    description: "The algorithm assumes fairness, prompt scheduling, eventual lock acquisition, or guaranteed progress that the runtime or synchronization mechanism does not provide." },
+];
+
+const BUG_TYPE_MAP = Object.fromEntries(BUG_TYPES.map((t) => [t.key, t]));
+const TYPES_BY_CATEGORY = Object.fromEntries(
+  CATEGORY_ORDER.map((cat) => [cat, BUG_TYPES.filter((t) => t.category === cat)])
+);
+const ALL_TYPE_KEYS = BUG_TYPES.map((t) => t.key);
+
+const BUGS = [
+  {
+    id: "dep-sum",
+    title: "Parallelising a Loop with a True Dependency",
+    language: "C/C++ with OpenMP",
+    typeKey: "incorrect-dependency-assumptions",
+    difficulty: "Beginner",
+    expectedBehaviour: "Compute a running (cumulative) sum into an output array, where each element depends on the previous one.",
+    serialCode: `#include <stdio.h>
+
+int main() {
+    int n = 20;
+    int input[20];
+    int output[20];
+
+    for (int i = 0; i < n; i++) input[i] = i + 1;
+
+    output[0] = input[0];
+    for (int i = 1; i < n; i++) {
+        output[i] = output[i - 1] + input[i];
+    }
+
+    for (int i = 0; i < n; i++) printf("%d ", output[i]);
+    printf("\\n");
+    return 0;
+}`,
+    buggyCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 20;
+    int input[20];
+    int output[20];
+
+    for (int i = 0; i < n; i++) input[i] = i + 1;
+
+    #pragma omp parallel for
+    for (int i = 1; i < n; i++) {
+        output[i] = output[i - 1] + input[i];
+    }
+    output[0] = input[0];
+
+    for (int i = 0; i < n; i++) printf("%d ", output[i]);
+    printf("\\n");
+    return 0;
+}`,
+    correctCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 20;
+    int input[20];
+    int output[20];
+
+    for (int i = 0; i < n; i++) input[i] = i + 1;
+
+    output[0] = input[0];
+    for (int i = 1; i < n; i++) {
+        output[i] = output[i - 1] + input[i];
+    }
+
+    for (int i = 0; i < n; i++) printf("%d ", output[i]);
+    return 0;
+}`,
+    plainExplanation: "Each answer needs the one right before it, but the code hands out chunks of the loop to different workers as if they didn't depend on each other. A worker can grab a number before it's actually ready, so the running total comes out wrong, and can even change from run to run.",
+    explanation: "#pragma omp parallel for hands each thread a slice of the iteration space on the assumption that no slice needs another slice's results. Here every output[i] reads output[i-1], which is only guaranteed correct once the loop has run sequentially up to that point. Simply adding synchronisation around the naive loop would just force it back into serial order; a real fix needs a parallel-prefix (scan) algorithm built for this exact dependency shape.",
+    concept: { name: "Loop-carried dependency", blurb: "A dependency exists between iterations when one iteration's output feeds directly into another's input. Iterations with this shape cannot be handed to threads independently." },
+    testHarness: "Run the program twice. If the printed sequence isn't a strictly increasing running total (1, 3, 6, 10, …), or the output changes between runs, the bug is present.",
+  },
+  {
+    id: "race-counter",
+    title: "Shared Counter Incremented Without Protection",
+    language: "C/C++ with OpenMP",
+    typeKey: "incorrect-synchronization",
+    difficulty: "Beginner",
+    expectedBehaviour: "Count exactly n loop iterations into a shared counter, so the final value always equals n.",
+    serialCode: `#include <stdio.h>
+
+int main() {
+    int n = 1000000;
+    int counter = 0;
+
+    for (int i = 0; i < n; i++) {
+        counter++;
+    }
+
+    printf("Counter = %d (expected %d)\\n", counter, n);
+    return 0;
+}`,
+    buggyCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 1000000;
+    int counter = 0;
+
+    #pragma omp parallel for
+    for (int i = 0; i < n; i++) {
+        counter++;
+    }
+
+    printf("Counter = %d (expected %d)\\n", counter, n);
+    return 0;
+}`,
+    correctCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 1000000;
+    int counter = 0;
+
+    #pragma omp parallel for reduction(+:counter)
+    for (int i = 0; i < n; i++) {
+        counter++;
+    }
+
+    printf("Counter = %d (expected %d)\\n", counter, n);
+    return 0;
+}`,
+    plainExplanation: "Lots of workers try to add one to the same shared number at the same time without taking turns, so some of those additions get lost and the final count ends up too low.",
+    explanation: "counter++ is really three steps: read, add one, write back. When two threads interleave those steps on the same shared variable, one thread's write can overwrite the other's, so increments quietly disappear. reduction(+:counter) gives each thread a private running total and combines them once at the end.",
+    concept: { name: "Data races and atomicity", blurb: "A data race happens when two threads touch the same memory without ordering, and at least one of them writes. Reductions and atomics are two different ways to remove the race." },
+    testHarness: "Run the program several times and compare the printed count to n. If it's ever lower than n, or changes between runs, the bug is present.",
+  },
+  {
+    id: "sync-missing-barrier",
+    title: "A Missing Barrier Between Two Dependent Loops",
+    language: "C/C++ with OpenMP",
+    typeKey: "incorrect-synchronization",
+    difficulty: "Intermediate",
+    expectedBehaviour: "Fill array a, then build array b from a reversed copy of a — every value of b should be computed from a fully-populated a.",
+    serialCode: `#include <stdio.h>
+
+int main() {
+    int n = 10;
+    double a[10], b[10];
+
+    for (int i = 0; i < n; i++) a[i] = i * 1.5;
+    for (int i = 0; i < n; i++) b[i] = a[n - 1 - i] * 2.0;
+
+    for (int i = 0; i < n; i++) printf("%.1f ", b[i]);
+    printf("\\n");
+    return 0;
+}`,
+    buggyCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 10;
+    double a[10], b[10];
+
+    #pragma omp parallel
+    {
+        #pragma omp for nowait
+        for (int i = 0; i < n; i++) {
+            a[i] = i * 1.5;
+        }
+
+        #pragma omp for
+        for (int i = 0; i < n; i++) {
+            b[i] = a[n - 1 - i] * 2.0;
+        }
+    }
+
+    for (int i = 0; i < n; i++) printf("%.1f ", b[i]);
+    printf("\\n");
+    return 0;
+}`,
+    correctCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 10;
+    double a[10], b[10];
+
+    #pragma omp parallel
+    {
+        #pragma omp for
+        for (int i = 0; i < n; i++) {
+            a[i] = i * 1.5;
+        }
+
+        #pragma omp for
+        for (int i = 0; i < n; i++) {
+            b[i] = a[n - 1 - i] * 2.0;
+        }
+    }
+
+    for (int i = 0; i < n; i++) printf("%.1f ", b[i]);
+    printf("\\n");
+    return 0;
+}`,
+    plainExplanation: "One group of workers starts building array b before another group has finished filling in all of array a, so some values get read before they're actually ready.",
+    explanation: "nowait tells OpenMP a thread can move straight into the second loop without waiting for the rest of the team. The second loop reads a[n-1-i] — an index likely owned by a different, possibly slower, thread — so a fast thread can read a value before it's been written. nowait removed exactly the barrier that guaranteed correctness here.",
+    concept: { name: "Synchronization and implicit barriers", blurb: "An omp for region ends with an implicit barrier by default. nowait removes that wait, which is only safe when the next region truly doesn't depend on the previous one finishing everywhere." },
+    testHarness: "Run the program several times and compare b's values to a known-correct single-threaded run. If they ever differ, the bug is present.",
+  },
+  {
+    id: "critical-bottleneck",
+    title: "An Expensive Loop Body Serialised by a Critical Section",
+    language: "C/C++ with OpenMP",
+    typeKey: "excessive-synchronization",
+    difficulty: "Advanced",
+    expectedBehaviour: "Sum a per-iteration trigonometric computation across a large range, using multiple threads to speed up the work.",
+    serialCode: `#include <stdio.h>
+#include <math.h>
+
+int main() {
+    int n = 2000000;
+    double total = 0.0;
+
+    for (int i = 1; i <= n; i++) {
+        total += sqrt((double)i) * sin((double)i);
+    }
+
+    printf("Total = %f\\n", total);
+    return 0;
+}`,
+    buggyCode: `#include <stdio.h>
+#include <omp.h>
+#include <math.h>
+
+int main() {
+    int n = 2000000;
+    double total = 0.0;
+
+    #pragma omp parallel for
+    for (int i = 1; i <= n; i++) {
+        double value = sqrt((double)i) * sin((double)i);
+        #pragma omp critical
+        {
+            total += value;
+        }
+    }
+
+    printf("Total = %f\\n", total);
+    return 0;
+}`,
+    correctCode: `#include <stdio.h>
+#include <omp.h>
+#include <math.h>
+
+int main() {
+    int n = 2000000;
+    double total = 0.0;
+
+    #pragma omp parallel for reduction(+:total)
+    for (int i = 1; i <= n; i++) {
+        double value = sqrt((double)i) * sin((double)i);
+        total += value;
+    }
+
+    printf("Total = %f\\n", total);
+    return 0;
+}`,
+    plainExplanation: "The code forces every worker to wait in line just to add its number to the running total, so only one worker is ever doing that step at a time — using more workers barely helps.",
+    explanation: "The critical section only needs to protect total += value, but every thread queues for it on every single iteration, right next to the sqrt/sin work in the same loop body. In practice only one thread is doing useful work at a time. reduction(+:total) lets each thread accumulate a private partial sum with no locking at all.",
+    concept: { name: "Critical sections vs. reductions", blurb: "A critical section is correct but expensive: only one thread can be inside it at a time. When the shared update is a simple combine operation, a reduction almost always beats a critical section." },
+    testHarness: "Time the program with 1 thread and with 4 threads. If 4 threads isn't meaningfully faster, the bug is present.",
+  },
+  {
+    id: "false-sharing",
+    title: "Per-Thread Counters Packed Into One Cache Line",
+    language: "C/C++ with OpenMP",
+    typeKey: "memory-bottlenecks",
+    difficulty: "Advanced",
+    expectedBehaviour: "Have each thread count its share of a large range into its own slot, then sum the slots — correct output, and it should scale with thread count.",
+    serialCode: `#include <stdio.h>
+
+int main() {
+    int n = 100000000;
+    long total = 0;
+
+    for (int i = 0; i < n; i++) {
+        total++;
+    }
+
+    printf("Total = %ld\\n", total);
+    return 0;
+}`,
+    buggyCode: `#include <stdio.h>
+#include <omp.h>
+
+#define NUM_THREADS 4
+
+int main() {
+    int n = 100000000;
+    int counts[NUM_THREADS] = {0};
+
+    #pragma omp parallel num_threads(NUM_THREADS)
+    {
+        int tid = omp_get_thread_num();
+        for (int i = tid; i < n; i += NUM_THREADS) {
+            counts[tid]++;
+        }
+    }
+
+    int total = 0;
+    for (int t = 0; t < NUM_THREADS; t++) total += counts[t];
+    printf("Total = %d\\n", total);
+    return 0;
+}`,
+    correctCode: `#include <stdio.h>
+#include <omp.h>
+
+#define NUM_THREADS 4
+
+int main() {
+    int n = 100000000;
+    int counts[NUM_THREADS] = {0};
+
+    #pragma omp parallel num_threads(NUM_THREADS)
+    {
+        int tid = omp_get_thread_num();
+        int local = 0;
+        for (int i = tid; i < n; i += NUM_THREADS) {
+            local++;
+        }
+        counts[tid] = local;
+    }
+
+    int total = 0;
+    for (int t = 0; t < NUM_THREADS; t++) total += counts[t];
+    printf("Total = %d\\n", total);
+    return 0;
+}`,
+    plainExplanation: "Each worker has its own counter, but they're stored so close together in memory that the workers keep stepping on each other's toes behind the scenes, slowing everything down even though the final answer is correct.",
+    explanation: "counts[0..3] sit next to each other in memory, almost certainly inside the same cache line. Every increment invalidates that line for every other core even though each thread only touches its own element. The output is correct — this bug only shows up as an otherwise-unexplained slowdown. Accumulating into a thread-local variable first removes it.",
+    concept: { name: "Cache coherence and false sharing", blurb: "Caches move data in fixed-size lines, not single variables. When unrelated variables used by different threads share a line, every write forces it to bounce between cores." },
+    testHarness: "Time the program with 1 thread and with 4 threads. If 4 threads gives little or no speedup despite each counter being independent, the bug is present.",
+  },
+  {
+    id: "load-imbalance",
+    title: "Uneven Work Split Across a Triangular Loop",
+    language: "C/C++ with OpenMP",
+    typeKey: "poor-task-partitioning-scheduling",
+    difficulty: "Intermediate",
+    expectedBehaviour: "Sum a per-pair computation over a triangular index range and scale roughly linearly as threads are added.",
+    serialCode: `#include <stdio.h>
+
+int main() {
+    int n = 20000;
+    long total = 0;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            total += (i * j) % 7;
+        }
+    }
+
+    printf("Total = %ld\\n", total);
+    return 0;
+}`,
+    buggyCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 20000;
+    long total = 0;
+
+    #pragma omp parallel for reduction(+:total) schedule(static)
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            total += (i * j) % 7;
+        }
+    }
+
+    printf("Total = %ld\\n", total);
+    return 0;
+}`,
+    correctCode: `#include <stdio.h>
+#include <omp.h>
+
+int main() {
+    int n = 20000;
+    long total = 0;
+
+    #pragma omp parallel for reduction(+:total) schedule(dynamic, 64)
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            total += (i * j) % 7;
+        }
+    }
+
+    printf("Total = %ld\\n", total);
+    return 0;
+}`,
+    plainExplanation: "The work is split into equal-sized pieces, but some pieces take much longer to finish than others, so most workers sit idle waiting for the one stuck with the slowest piece.",
+    explanation: "schedule(static) hands out equal-sized blocks of the outer index i, but the inner loop does i units of work — so the block covering the largest i does far more work than the block covering the smallest. schedule(dynamic, 64) hands out small chunks on demand instead, so idle threads keep picking up new chunks until the work is exhausted.",
+    concept: { name: "Scheduling and load balance", blurb: "A static schedule divides the iteration count evenly, ideal when every iteration costs the same. When iteration cost varies, a dynamic or guided schedule keeps threads busy instead of idle." },
+    testHarness: "Time the program with 4 threads and log each thread's finishing time. If one thread finishes far later than the others, the bug is present.",
+  },
+];
+
+/* ----------------------------------------------------------------------- */
+/* Tiny C/OpenMP syntax highlighter — no external dependency, line-based.   */
+/* ----------------------------------------------------------------------- */
+
+const KEYWORDS = new Set([
+  "int", "double", "float", "char", "void", "return", "for", "while", "if",
+  "else", "include", "define", "struct", "const", "static", "sizeof", "long",
+]);
+
+function highlightLine(line) {
+  const tokens = [];
+  const push = (text, color, italic) => tokens.push({ text, color, italic });
+
+  if (/^\s*\/\//.test(line)) return [{ text: line, color: C.textFaint, italic: true }];
+  if (/^\s*#/.test(line)) {
+    const m = line.match(/^(\s*#\w+)(.*)$/);
+    if (m) {
+      push(m[1], "#B5591F");
+      const rest = m[2];
+      const inc = rest.match(/^(\s*)(<[^>]*>|"[^"]*")(.*)$/);
+      if (inc) { push(inc[1], C.text); push(inc[2], C.slow); push(inc[3], C.text); }
+      else push(rest, C.text);
+      return tokens;
+    }
+  }
+
+  const re = /(\d+(?:\.\d+)?)|([A-Za-z_]\w*)|("[^"]*")/g;
+  let last = 0, match;
+  while ((match = re.exec(line)) !== null) {
+    if (match.index > last) push(line.slice(last, match.index), C.text);
+    const [full, num, word, str] = match;
+    if (num) push(full, C.incorrect);
+    else if (word) push(full, KEYWORDS.has(word) ? "#1B5FA8" : C.text);
+    else if (str) push(full, C.slow);
+    last = match.index + full.length;
+  }
+  if (last < line.length) push(line.slice(last), C.text);
+  return tokens.length ? tokens : [{ text: line, color: C.text }];
+}
+
+function CodeBlock({ code }) {
+  const lines = code.split("\n");
+  return (
+    <div className="overflow-hidden rounded-md" style={{ border: `1px solid ${C.border}`, backgroundColor: "#F7FBFE" }}>
+      <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+        <table className="w-full font-mono text-[13px] leading-6 border-collapse">
+          <tbody>
+            {lines.map((line, idx) => (
+              <tr key={idx}>
+                <td className="select-none text-right pr-4 pl-4 w-10 align-top" style={{ color: C.textFaint, borderRight: `1px solid ${C.border}` }}>{idx + 1}</td>
+                <td className="pl-4 pr-6 whitespace-pre align-top">
+                  {highlightLine(line).map((t, i2) => (
+                    <span key={i2} style={{ color: t.color, fontStyle: t.italic ? "italic" : "normal" }}>{t.text}</span>
+                  ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function JsonBlock({ value }) {
+  return (
+    <pre
+      className="overflow-x-auto rounded-md px-4 py-3 text-xs font-mono leading-relaxed"
+      style={{ backgroundColor: "#F7FBFE", border: `1px solid ${C.border}`, color: C.textMuted }}
+    >
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* ZIP export — minimal, dependency-free, uncompressed (STORE) ZIP writer.  */
+/* ----------------------------------------------------------------------- */
+
+let CRC_TABLE = null;
+function crc32(bytes) {
+  if (!CRC_TABLE) {
+    CRC_TABLE = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      CRC_TABLE[n] = c >>> 0;
+    }
+  }
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[i]) & 0xFF];
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function buildZip(files) {
+  const encoder = new TextEncoder();
+  const localChunks = [];
+  const centralChunks = [];
+  let offset = 0;
+
+  files.forEach((f) => {
+    const nameBytes = encoder.encode(f.name);
+    const dataBytes = encoder.encode(f.content);
+    const crc = crc32(dataBytes);
+    const size = dataBytes.length;
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, 0, true);
+    lv.setUint16(12, 0x21, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+
+    localChunks.push(local, dataBytes);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0x21, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+    centralChunks.push(central);
+
+    offset += local.length + dataBytes.length;
+  });
+
+  const centralOffset = offset;
+  const centralSize = centralChunks.reduce((s, c) => s + c.length, 0);
+
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, centralOffset, true);
+
+  const total = offset + centralSize + eocd.length;
+  const out = new Uint8Array(total);
+  let pos = 0;
+  [...localChunks, ...centralChunks, eocd].forEach((chunk) => { out.set(chunk, pos); pos += chunk.length; });
+  return out;
+}
+
+function downloadZip(files, filename) {
+  const bytes = buildZip(files);
+  const blob = new Blob([bytes], { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadBugSourcesZip(bug) {
+  const files = [
+    { name: "serial.c", content: bug.serialCode },
+    { name: "parallel.c", content: bug.buggyCode },
+    { name: "test_harness.txt", content: bug.testHarness },
+  ];
+  if (bug.fixedAvailable) files.push({ name: "parallel_fixed.c", content: bug.correctCode });
+  downloadZip(files, `${bug.id}-sources.zip`);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Storage helpers — namespaced key/value records via window.storage.       */
+/* ----------------------------------------------------------------------- */
+
+async function saveRecord(prefix, record) {
+  await window.storage.set(`bugforge_${prefix}:${record.id}`, JSON.stringify(record), false);
+}
+async function loadAllRecords(prefix) {
+  const listed = await window.storage.list(`bugforge_${prefix}:`, false);
+  const keys = listed?.keys || [];
+  const records = [];
+  for (const key of keys) {
+    try {
+      const res = await window.storage.get(key, false);
+      if (res?.value) records.push(JSON.parse(res.value));
+    } catch { /* skip unreadable record */ }
+  }
+  return records.sort((a, b) => b.timestamp - a.timestamp);
+}
+async function deleteAllRecords(prefix) {
+  const listed = await window.storage.list(`bugforge_${prefix}:`, false);
+  for (const key of listed?.keys || []) await window.storage.delete(key, false);
+}
+function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
+
+/* ----------------------------------------------------------------------- */
+/* Small UI primitives                                                      */
+/* ----------------------------------------------------------------------- */
+
+function Tag({ children, color }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium"
+      style={{ border: `1px solid ${C.border}`, color: color || C.textMuted, backgroundColor: C.surface2 }}>
+      {children}
+    </span>
+  );
+}
+
+function PrimaryButton({ children, onClick, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+      style={{ backgroundColor: C.accent, color: "#FFFFFF" }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = C.accentHover; }}
+      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = C.accent; }}>
+      {children}
+    </button>
+  );
+}
+
+function GhostButton({ children, onClick, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+      style={{ border: `1px solid ${C.borderStrong}`, color: C.text, backgroundColor: C.surface }}>
+      {children}
+    </button>
+  );
+}
+
+function NumberBadge({ n }) {
+  return (
+    <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold shrink-0" style={{ backgroundColor: C.accent, color: "#FFFFFF" }}>{n}</span>
+  );
+}
+
+function CodeIcon() { return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="8 6 2 12 8 18" /><polyline points="16 6 22 12 16 18" /></svg>); }
+function TextIcon() { return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="14" y2="18" /></svg>); }
+function LinkIcon() { return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 15l6-6" /><path d="M10.5 6.5l1-1a3.5 3.5 0 015 5l-1 1" /><path d="M13.5 17.5l-1 1a3.5 3.5 0 01-5-5l1-1" /></svg>); }
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable */ }
+  };
+  return (
+    <button onClick={handleCopy} className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+      style={{ border: `1px solid ${C.border}`, color: copied ? C.success : C.textMuted, backgroundColor: C.surface }}>
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function ChevronIcon({ open }) { return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}><polyline points="6 9 12 15 18 9" /></svg>); }
+
+function Logo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <circle cx="5" cy="12" r="2.4" fill={C.slow} />
+      <circle cx="19" cy="5" r="2.4" fill={C.incorrect} />
+      <circle cx="19" cy="19" r="2.4" fill={C.nonterminating} />
+      <path d="M7 12 L17 5.5 M7 12 L17 18.5" stroke={C.borderStrong} strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Error item — one-line summary always visible; full description on       */
+/* hover (desktop, pure CSS) or tap (mobile, via chevron + local state).    */
+/* ----------------------------------------------------------------------- */
+
+function ErrorItem({ type, checked, onToggle, expanded, onToggleExpand, isFirst }) {
+  const color = CATEGORIES[type.category].color;
+  return (
+    <div className="group overflow-hidden transition-colors"
+      style={{ backgroundColor: checked ? CATEGORIES[type.category].soft : C.surface, borderLeft: `4px solid ${color}`, borderTop: isFirst ? "none" : `1px solid ${C.border}` }}>
+      <label className="flex items-center gap-3 px-4 py-4 cursor-pointer">
+        <input type="checkbox" checked={checked} onChange={onToggle} className="h-5 w-5 shrink-0" style={{ accentColor: color }} />
+        <span className="flex-1 min-w-0 text-sm sm:text-base font-semibold break-words" style={{ color: C.text }}>{type.label}</span>
+        <button type="button" onClick={(e) => { e.preventDefault(); onToggleExpand(); }}
+          className="lg:hidden shrink-0 p-1 -mr-1" style={{ color: C.textFaint }} aria-label="Show full description">
+          <ChevronIcon open={expanded} />
+        </button>
+      </label>
+      {/* Desktop: pure-CSS hover reveal */}
+      <div className="hidden lg:block lg:max-h-0 lg:overflow-hidden lg:group-hover:max-h-32 transition-all duration-200 ease-out">
+        <p className="px-4 pb-3 text-xs leading-snug break-words" style={{ color: C.textMuted }}>{type.description}</p>
+      </div>
+      {/* Mobile: tap-to-expand */}
+      {expanded && (
+        <div className="lg:hidden px-4 pb-3">
+          <p className="text-xs leading-snug break-words" style={{ color: C.textMuted }}>{type.description}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ErrorCategorySelector({ selectedTypes, onToggle, expandedKeys, onToggleExpand }) {
+  const [mobileTab, setMobileTab] = useState("incorrect");
+
+  const columnFor = (cat) => (
+    <div key={cat}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: CATEGORIES[cat].color }} />
+        <h4 className="text-sm font-semibold" style={{ color: C.text }}>{CATEGORIES[cat].label}</h4>
+      </div>
+      <p className="text-xs mb-2 break-words" style={{ color: C.textFaint }}>{CATEGORIES[cat].blurb}</p>
+      <div className="rounded-md overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+        {TYPES_BY_CATEGORY[cat].map((t, i) => (
+          <ErrorItem key={t.key} type={t} checked={selectedTypes.includes(t.key)} onToggle={() => onToggle(t.key)}
+            expanded={expandedKeys.has(t.key)} onToggleExpand={() => onToggleExpand(t.key)} isFirst={i === 0} />
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Desktop: three columns, side by side, word-wrapped */}
+      <div className="hidden lg:grid lg:grid-cols-3 gap-4">
+        {CATEGORY_ORDER.map(columnFor)}
+      </div>
+
+      {/* Mobile: tabs, one category at a time */}
+      <div className="lg:hidden">
+        <div className="flex gap-1 overflow-x-auto" style={{ borderBottom: `1px solid ${C.border}` }}>
+          {CATEGORY_ORDER.map((cat) => (
+            <button key={cat} onClick={() => setMobileTab(cat)}
+              className="whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors"
+              style={{ color: mobileTab === cat ? CATEGORIES[cat].color : C.textMuted, borderBottom: mobileTab === cat ? `2px solid ${CATEGORIES[cat].color}` : "2px solid transparent", marginBottom: "-1px" }}>
+              {CATEGORIES[cat].label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3">{columnFor(mobileTab)}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Bug list — separate from the prose explanation; one-line plain-English   */
+/* summary always visible, full technical detail behind a toggle.          */
+/* ----------------------------------------------------------------------- */
+
+function BugListItem({ bug }) {
+  const [open, setOpen] = useState(false);
+  const type = BUG_TYPE_MAP[bug.typeKey];
+  const color = CATEGORIES[type.category].color;
+  return (
+    <div className="rounded-md overflow-hidden" style={{ border: `1px solid ${C.border}`, borderLeft: `4px solid ${color}`, backgroundColor: C.surface }}>
+      <div className="flex items-start justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold" style={{ color: C.text }}>{type.label}</span>
+            <Tag color={color}>{CATEGORIES[type.category].label}</Tag>
+          </div>
+          <p className="mt-1.5 text-sm leading-relaxed break-words" style={{ color: C.textMuted }}>{bug.plainExplanation}</p>
+        </div>
+        <button onClick={() => setOpen((v) => !v)} className="shrink-0 flex items-center gap-1 text-xs font-medium mt-0.5" style={{ color: C.accent }}>
+          Why? <ChevronIcon open={open} />
+        </button>
+      </div>
+      {open && (
+        <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop: `1px solid ${C.border}` }}>
+          <div>
+            <p className="text-xs font-semibold uppercase mt-3" style={{ color: C.textFaint, letterSpacing: "0.05em" }}>Technical explanation</p>
+            <p className="mt-1 text-sm leading-relaxed" style={{ color: C.text }}>{bug.explanation}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase" style={{ color: C.textFaint, letterSpacing: "0.05em" }}>Concept — {bug.concept.name}</p>
+            <p className="mt-1 text-sm leading-relaxed" style={{ color: C.text }}>{bug.concept.blurb}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Main Bug Finder page                                                     */
+/* ----------------------------------------------------------------------- */
+
+function BugFinderPage({ onRunSaved, setError }) {
+  const [language, setLanguage] = useState(LANGUAGES[0]);
+  const [sourceCode, setSourceCode] = useState("");
+  const [sourceText, setSourceText] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState([]);
+  const [expandedKeys, setExpandedKeys] = useState(new Set());
+  const [showRequest, setShowRequest] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  const [run, setRun] = useState(null); // { bug, generatedAt, fixLoading, fixed }
+  const [resultTab, setResultTab] = useState("code"); // "code" | "harness" | "explanation"
+
+  const toggleType = (key) => setSelectedTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const toggleExpand = (key) => setExpandedKeys((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+  const selectAll = () => setSelectedTypes(ALL_TYPE_KEYS);
+  const deselectAll = () => setSelectedTypes([]);
+
+  const requestPayload = useMemo(() => ({
+    language,
+    errorTypes: selectedTypes,
+    sourceMaterial: {
+      code: sourceCode || undefined,
+      text: sourceText || undefined,
+      url: sourceUrl || undefined,
+    },
+  }), [language, selectedTypes, sourceCode, sourceText, sourceUrl]);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setNotice(null);
+    try {
+      let pool = BUGS.filter((b) => b.language === language);
+      let usedFallback = false;
+
+      if (selectedTypes.length > 0) {
+        const narrowed = pool.filter((b) => selectedTypes.includes(b.typeKey));
+        if (narrowed.length) pool = narrowed; else usedFallback = true;
+      }
+      if (!pool.length) {
+        setNotice("No controlled example is available for that combination yet.");
+        setLoading(false);
+        return;
+      }
+
+      const bug = pool[Math.floor(Math.random() * pool.length)];
+      const record = {
+        id: uid(),
+        bugId: bug.id,
+        typeKey: bug.typeKey,
+        category: BUG_TYPE_MAP[bug.typeKey].category,
+        language: bug.language,
+        difficulty: bug.difficulty,
+        requestPayload,
+        fixed: false,
+        timestamp: Date.now(),
+      };
+      try { await saveRecord("run", record); onRunSaved?.(); } catch { setError("Couldn't save this run to History, but you can still continue."); }
+
+      if (usedFallback) setNotice("Your exact filters had no match — showing the closest available example instead.");
+
+      setRun({ record, bug, generatedAt: Date.now(), fixLoading: false, fixed: false });
+      setResultTab("code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFixBugs = async () => {
+    if (!run) return;
+    setRun((r) => ({ ...r, fixLoading: true }));
+    await new Promise((res) => setTimeout(res, 700)); // simulated request round-trip
+    setRun((r) => ({ ...r, fixLoading: false, fixed: true }));
+    try {
+      const updated = { ...run.record, fixed: true };
+      await saveRecord("run", updated);
+      onRunSaved?.();
+    } catch { setError("The fix was shown, but couldn't be saved to History."); }
+  };
+
+  const inputStyle = { backgroundColor: C.surface2, color: C.text, border: `1px solid ${C.border}` };
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10">
+      <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight" style={{ color: C.text }}>Parallel Bug Lab</h1>
+      <p className="mt-2 text-sm" style={{ color: C.textMuted }}>Study and analyse deliberately buggy parallel programs.</p>
+
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
+        <div className="space-y-7">
+          {/* Step 1 — source material */}
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <NumberBadge n={1} />
+              <h3 className="text-base font-semibold" style={{ color: C.text }}>
+                Provide source material <span className="font-normal" style={{ color: C.textFaint }}>(optional)</span>
+              </h3>
+            </div>
+            <p className="text-xs mb-3 ml-9" style={{ color: C.textFaint }}>Fill in any combination — a starting program, instructions for what to build, or a reference link.</p>
+            <div className="ml-9 space-y-3">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium mb-1.5" style={{ color: C.textMuted }}><CodeIcon /> Code</label>
+                <textarea value={sourceCode} onChange={(e) => setSourceCode(e.target.value)} rows={4}
+                  placeholder={"for (int i = 0; i < n; i++) {\n    sum += a[i];\n}"}
+                  className="w-full rounded-md px-3 py-2.5 text-xs font-mono outline-none resize-y" style={inputStyle} />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium mb-1.5" style={{ color: C.textMuted }}><TextIcon /> Text</label>
+                <input type="text" value={sourceText} onChange={(e) => setSourceText(e.target.value)}
+                  placeholder="e.g. a parallel matrix multiply for a second-year systems course"
+                  className="w-full rounded-md px-3 py-2.5 text-sm outline-none" style={inputStyle} />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium mb-1.5" style={{ color: C.textMuted }}><LinkIcon /> URL</label>
+                <input type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://…"
+                  className="w-full rounded-md px-3 py-2.5 text-sm outline-none" style={inputStyle} />
+              </div>
+              <p className="text-[11px] leading-snug" style={{ color: C.textFaint }}>
+                Attached to this run as context. The lab still serves one of its pre-validated example programs below — nothing is generated or executed from your input.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 2 — language */}
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <NumberBadge n={2} />
+              <h3 className="text-base font-semibold" style={{ color: C.text }}>Select language</h3>
+            </div>
+            <div className="ml-9 mt-3">
+              <select value={language} onChange={(e) => setLanguage(e.target.value)} className="w-56 max-w-full rounded-md px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.surface, color: C.text, border: `1px solid ${C.border}` }}>
+                {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Step 3 — error categories */}
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <NumberBadge n={3} />
+              <h3 className="text-base font-semibold" style={{ color: C.text }}>Select error categories</h3>
+            </div>
+            <div className="ml-9 flex flex-wrap items-center justify-between gap-2 mb-2">
+              <p className="text-xs" style={{ color: C.textFaint }}>Switch tabs on mobile. Select any number of checks in each.</p>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs" style={{ color: C.textFaint }}>{selectedTypes.length} of {ALL_TYPE_KEYS.length} selected</span>
+                <button onClick={selectAll} className="text-xs font-medium" style={{ color: C.accent }}>Select all</button>
+                <button onClick={deselectAll} className="text-xs font-medium" style={{ color: C.textFaint }}>Deselect all</button>
+              </div>
+            </div>
+            <div className="ml-9">
+              <ErrorCategorySelector selectedTypes={selectedTypes} onToggle={toggleType} expandedKeys={expandedKeys} onToggleExpand={toggleExpand} />
+            </div>
+            {selectedTypes.length > 0 && (
+              <div className="ml-9 mt-4">
+                <p className="text-sm font-medium mb-2" style={{ color: C.accent }}>Selected error types ({selectedTypes.length})</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTypes.map((key) => {
+                    const t = BUG_TYPE_MAP[key];
+                    const color = CATEGORIES[t.category].color;
+                    return (
+                      <span key={key} className="inline-flex items-center gap-2 rounded-full pl-3 pr-2 py-1.5 text-xs font-medium"
+                        style={{ border: `1px solid ${C.border}`, backgroundColor: C.surface, color: C.text }}>
+                        <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        {t.label}
+                        <button type="button" onClick={() => toggleType(key)} className="ml-1 leading-none text-sm"
+                          style={{ color: C.textFaint }} aria-label={`Remove ${t.label}`}>×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 4 — everything left before you hit Generate */}
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <NumberBadge n={4} />
+              <button onClick={() => setShowRequest((v) => !v)} className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: C.text }}>
+                <ChevronIcon open={showRequest} /> {showRequest ? "Hide" : "Show"} request preview
+              </button>
+            </div>
+            <div className="ml-9">
+              {showRequest && <div className="mt-2"><JsonBlock value={requestPayload} /></div>}
+              {notice && (
+                <div className="mt-3 rounded-md px-4 py-3 text-sm" style={{ backgroundColor: C.accentSoft, color: C.accentHover, border: `1px solid ${C.accent}55` }}>{notice}</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-md p-5 h-fit" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.textFaint, letterSpacing: "0.06em" }}>What happens next</p>
+            <p className="mt-2 text-sm leading-relaxed" style={{ color: C.textMuted }}>
+              The lab picks one controlled, pre-validated example matching your selection. You'll get the buggy code, a test harness, and a plain-English bug list — with a one-click Fix Bugs reveal.
+            </p>
+            <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${C.border}` }}>
+              {CATEGORY_ORDER.map((cat) => (
+                <div key={cat} className="flex items-start gap-2 text-xs" style={{ color: C.textMuted }}>
+                  <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: CATEGORIES[cat].color }} />
+                  <span><span style={{ color: C.text, fontWeight: 600 }}>{CATEGORIES[cat].label}</span> — {CATEGORIES[cat].blurb}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <PrimaryButton onClick={handleGenerate} disabled={loading}>{loading ? "Generating…" : "Generate"}</PrimaryButton>
+        </div>
+      </div>
+
+      {/* Step 5 — results (after Generate) */}
+      {run && (
+        <div className="mt-10 pt-8" style={{ borderTop: `1px solid ${C.border}` }}>
+          <div className="flex items-center gap-3 mb-4">
+            <NumberBadge n={5} />
+            <h2 className="text-xl font-semibold" style={{ color: C.text }}>{run.bug.title}</h2>
+          </div>
+
+          <div className="ml-9 rounded-md overflow-hidden" style={{ border: `1px solid ${C.border}`, backgroundColor: C.surface }}>
+            {/* Header: bug-type tag, language tag, bug count, download */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface2 }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Tag color={CATEGORIES[BUG_TYPE_MAP[run.bug.typeKey].category].color}>{BUG_TYPE_MAP[run.bug.typeKey].label}</Tag>
+                <Tag>{run.bug.language}</Tag>
+                <span className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{ backgroundColor: C.accentSoft, color: C.accentHover }}>1 bug found</span>
+              </div>
+              <GhostButton onClick={() => downloadBugSourcesZip({ ...run.bug, fixedAvailable: run.fixed })}>Download .zip</GhostButton>
+            </div>
+
+            {/* Sub-tabs */}
+            <div className="flex gap-1 px-4" style={{ borderBottom: `1px solid ${C.border}` }}>
+              {[
+                { key: "code", label: "Buggy Code" },
+                { key: "harness", label: "Test Harness" },
+                { key: "explanation", label: "Explanation" },
+              ].map((t) => (
+                <button key={t.key} onClick={() => setResultTab(t.key)}
+                  className="px-3 py-2.5 text-sm font-medium transition-colors"
+                  style={{ color: resultTab === t.key ? C.accent : C.textMuted, borderBottom: resultTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent", marginBottom: "-1px" }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-4">
+              {resultTab === "code" && (
+                <div>
+                  <p className="text-sm leading-relaxed mb-3" style={{ color: C.text }}>
+                    <span className="font-semibold">Expected behavior. </span><span style={{ color: C.textMuted }}>{run.bug.expectedBehaviour}</span>
+                  </p>
+                  <div className="flex justify-end mb-2"><CopyButton text={run.bug.buggyCode} /></div>
+                  <CodeBlock code={run.bug.buggyCode} />
+                </div>
+              )}
+
+              {resultTab === "harness" && (
+                <div>
+                  <p className="text-sm leading-relaxed" style={{ color: C.textMuted }}>{run.bug.testHarness}</p>
+                  <p className="mt-4 text-xs" style={{ color: C.textFaint }}>
+                    The serial reference program used by this harness is included in the downloadable .zip as <code>serial.c</code>.
+                  </p>
+                </div>
+              )}
+
+              {resultTab === "explanation" && (
+                <div>
+                  <BugListItem bug={run.bug} />
+                  <div className="mt-5">
+                    {!run.fixed ? (
+                      <PrimaryButton onClick={handleFixBugs} disabled={run.fixLoading}>{run.fixLoading ? "Fixing…" : "Fix Bugs"}</PrimaryButton>
+                    ) : (
+                      <GhostButton disabled>Fixed ✓</GhostButton>
+                    )}
+                  </div>
+                  {run.fixed && (
+                    <div className="mt-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold" style={{ color: C.text }}>Fixed code</h3>
+                        <CopyButton text={run.bug.correctCode} />
+                      </div>
+                      <CodeBlock code={run.bug.correctCode} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* History page                                                             */
+/* ----------------------------------------------------------------------- */
+
+function HistoryRow({ record }) {
+  const [open, setOpen] = useState(false);
+  const bug = BUGS.find((b) => b.id === record.bugId);
+  const type = BUG_TYPE_MAP[record.typeKey];
+  return (
+    <div className="rounded-md overflow-hidden" style={{ border: `1px solid ${C.border}`, borderLeft: `4px solid ${CATEGORIES[record.category]?.color || C.border}`, backgroundColor: C.surface }}>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold" style={{ color: C.text }}>{bug?.title || record.bugId}</span>
+            {record.fixed && <Tag color={C.success}>Fixed</Tag>}
+          </div>
+          <p className="mt-0.5 text-xs" style={{ color: C.textFaint }}>
+            {new Date(record.timestamp).toLocaleString()} · {type?.label} · {record.language}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {bug && (
+            <span onClick={(e) => { e.stopPropagation(); downloadBugSourcesZip({ ...bug, fixedAvailable: record.fixed }); }} role="button" tabIndex={0}
+              className="text-xs font-medium" style={{ color: C.accent }}>Download</span>
+          )}
+          <ChevronIcon open={open} />
+        </div>
+      </button>
+      {open && bug && (
+        <div className="px-4 pb-4 space-y-4" style={{ borderTop: `1px solid ${C.border}` }}>
+          <div className="pt-3">
+            <p className="text-xs font-semibold uppercase" style={{ color: C.textFaint, letterSpacing: "0.05em" }}>Request</p>
+            <div className="mt-1.5"><JsonBlock value={record.requestPayload} /></div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase" style={{ color: C.textFaint, letterSpacing: "0.05em" }}>Buggy code</p>
+            <div className="mt-1.5"><CodeBlock code={bug.buggyCode} /></div>
+          </div>
+          {record.fixed && (
+            <div>
+              <p className="text-xs font-semibold uppercase" style={{ color: C.textFaint, letterSpacing: "0.05em" }}>Fixed code</p>
+              <div className="mt-1.5"><CodeBlock code={bug.correctCode} /></div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryPage({ refreshToken, setError }) {
+  const [records, setRecords] = useState(null);
+
+  const load = useCallback(async () => {
+    try { setRecords(await loadAllRecords("run")); }
+    catch { setError("Couldn't load history."); setRecords([]); }
+  }, [setError]);
+
+  useEffect(() => { load(); }, [load, refreshToken]);
+
+  const handleExportZip = () => {
+    if (!records || !records.length) return;
+    const files = [{ name: "history-summary.json", content: JSON.stringify(records, null, 2) }];
+    records.forEach((r, idx) => {
+      const bug = BUGS.find((b) => b.id === r.bugId);
+      const n = idx + 1;
+      const stamp = new Date(r.timestamp).toISOString().replace(/[:.]/g, "-");
+      if (bug) {
+        files.push({ name: `run-${n}-${stamp}/serial.c`, content: bug.serialCode });
+        files.push({ name: `run-${n}-${stamp}/parallel.c`, content: bug.buggyCode });
+        files.push({ name: `run-${n}-${stamp}/test_harness.txt`, content: bug.testHarness });
+        if (r.fixed) files.push({ name: `run-${n}-${stamp}/parallel_fixed.c`, content: bug.correctCode });
+      }
+      files.push({ name: `run-${n}-${stamp}/request.json`, content: JSON.stringify(r.requestPayload, null, 2) });
+    });
+    downloadZip(files, `bugforge-history-${Date.now()}.zip`);
+  };
+
+  const handleClear = async () => {
+    try { await deleteAllRecords("run"); load(); }
+    catch { setError("Couldn't clear history."); }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-10">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: C.text }}>History</h1>
+          <p className="mt-2 text-sm" style={{ color: C.textMuted }}>Every program generated in this lab, in this session.</p>
+        </div>
+        {records && records.length > 0 && (
+          <GhostButton onClick={handleExportZip}>Export all as .zip</GhostButton>
+        )}
+      </div>
+
+      {records === null && <p className="mt-6 text-sm" style={{ color: C.textMuted }}>Loading…</p>}
+
+      {records && records.length === 0 && (
+        <div className="mt-6 rounded-md px-4 py-3 text-sm" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, color: C.textMuted }}>
+          No runs yet. Generate a bug in the lab to see it here.
+        </div>
+      )}
+
+      {records && records.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {records.map((r) => <HistoryRow key={r.id} record={r} />)}
+        </div>
+      )}
+
+      {records && records.length > 0 && (
+        <button onClick={handleClear} className="mt-8 text-xs" style={{ color: C.textFaint }}>Clear history</button>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Dashboard page — aggregate stats over every run stored in this session.  */
+/* ----------------------------------------------------------------------- */
+
+function StatCard({ value, label }) {
+  return (
+    <div className="rounded-md p-5 text-center" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+      <div className="text-2xl font-bold" style={{ color: C.accent }}>{value}</div>
+      <div className="mt-1 text-xs leading-tight" style={{ color: C.textMuted }}>{label}</div>
+    </div>
+  );
+}
+
+function BreakdownCard({ title, entries, colorFor }) {
+  return (
+    <div className="rounded-md p-5" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+      <h3 className="text-sm font-semibold" style={{ color: C.text }}>{title}</h3>
+      {entries.length === 0 ? (
+        <p className="mt-3 text-sm" style={{ color: C.textFaint }}>No data yet.</p>
+      ) : (
+        <ul className="mt-3 space-y-2.5">
+          {entries.map(([key, count]) => (
+            <li key={key} className="flex items-center justify-between text-sm gap-3">
+              <span className="flex items-center gap-2 min-w-0" style={{ color: C.textMuted }}>
+                {colorFor && <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colorFor(key) }} />}
+                <span className="truncate">{key}</span>
+              </span>
+              <span className="font-semibold shrink-0" style={{ color: C.text }}>{count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DashboardPage({ refreshToken, setError }) {
+  const [records, setRecords] = useState(null);
+
+  const load = useCallback(async () => {
+    try { setRecords(await loadAllRecords("run")); }
+    catch { setError("Couldn't load dashboard data."); setRecords([]); }
+  }, [setError]);
+
+  useEffect(() => { load(); }, [load, refreshToken]);
+
+  if (records === null) {
+    return <div className="mx-auto max-w-4xl px-6 py-20 text-center text-sm" style={{ color: C.textMuted }}>Loading dashboard…</div>;
+  }
+
+  const total = records.length;
+  const fixedCount = records.filter((r) => r.fixed).length;
+  const fixRate = total ? Math.round((fixedCount / total) * 100) : null;
+
+  const countBy = (arr, field, labelFn) => {
+    const map = {};
+    arr.forEach((r) => {
+      const key = labelFn ? labelFn(r[field]) : r[field];
+      map[key] = (map[key] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  };
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: C.text }}>Dashboard</h1>
+      <p className="mt-2 text-sm" style={{ color: C.textMuted }}>Aggregate statistics from every program generated in this session.</p>
+
+      {total === 0 && (
+        <div className="mt-6 rounded-md px-4 py-3 text-sm" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, color: C.textMuted }}>
+          No programs generated yet. Head to the Lab tab to generate one.
+        </div>
+      )}
+
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <StatCard value={total} label="Programs generated" />
+        <StatCard value={fixedCount} label="Fix Bugs requested" />
+        <StatCard value={fixRate === null ? "—" : `${fixRate}%`} label="Fix request rate" />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <BreakdownCard
+          title="By category"
+          entries={countBy(records, "category", (k) => CATEGORIES[k]?.label || k)}
+          colorFor={(label) => { const e = Object.values(CATEGORIES).find((c) => c.label === label); return e ? e.color : C.textFaint; }}
+        />
+        <BreakdownCard
+          title="By error type"
+          entries={countBy(records, "typeKey", (k) => BUG_TYPE_MAP[k]?.label || k)}
+          colorFor={(label) => { const t = BUG_TYPES.find((b) => b.label === label); return t ? CATEGORIES[t.category].color : C.textFaint; }}
+        />
+      </div>
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <BreakdownCard title="By difficulty" entries={countBy(records, "difficulty")} />
+        <BreakdownCard title="By language" entries={countBy(records, "language")} />
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* About page                                                               */
+/* ----------------------------------------------------------------------- */
+
+function AboutPage() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: C.text }}>About BugForge</h1>
+      <p className="mt-3 text-sm leading-relaxed" style={{ color: C.textMuted }}>
+        BugForge is a lab for studying deliberately buggy parallel programs. Pick which error categories you want to
+        see, optionally point it at your own source material, and it serves one controlled, pre-validated example —
+        nothing is generated or executed on the fly.
+      </p>
+
+      <h2 className="mt-8 text-base font-semibold" style={{ color: C.text }}>The taxonomy</h2>
+      <div className="mt-3 space-y-3">
+        {CATEGORY_ORDER.map((cat) => (
+          <div key={cat} className="rounded-md p-4" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${CATEGORIES[cat].color}` }}>
+            <p className="text-sm font-semibold" style={{ color: C.text }}>{CATEGORIES[cat].label}</p>
+            <p className="mt-1 text-sm" style={{ color: C.textMuted }}>{CATEGORIES[cat].blurb}</p>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="mt-8 text-base font-semibold" style={{ color: C.text }}>What each run gives you</h2>
+      <ul className="mt-3 space-y-2 text-sm leading-relaxed" style={{ color: C.textMuted }}>
+        <li>• A buggy parallel program, free of any comments that point out the bug</li>
+        <li>• A test harness — how to tell the bug is actually present</li>
+        <li>• A plain-English bug summary, with the technical detail one click away</li>
+        <li>• A one-click Fix Bugs reveal for the corrected program</li>
+        <li>• A downloadable .zip with the serial reference, the parallel version, and the harness</li>
+      </ul>
+
+      <h2 className="mt-8 text-base font-semibold" style={{ color: C.text }}>Data &amp; privacy</h2>
+      <p className="mt-2 text-sm leading-relaxed" style={{ color: C.textMuted }}>
+        Runs are saved locally to this account so History and the Dashboard can show past activity. Use "Clear history"
+        on the History tab to remove them.
+      </p>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* App shell                                                                */
+/* ----------------------------------------------------------------------- */
+
+const NAV_ITEMS = [
+  { key: "lab", label: "Lab" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "about", label: "About" },
+  { key: "history", label: "History" },
+];
+
+export default function BugForge() {
+  const [nav, setNav] = useState("lab"); // "lab" | "dashboard" | "about" | "history"
+  const [error, setError] = useState(null);
+  const [dataRefresh, setDataRefresh] = useState(0);
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: C.bg, color: C.text, fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
+      <div style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 font-semibold">
+            <Logo /> BugForge
+          </div>
+          <nav className="flex items-center gap-4 sm:gap-6 text-sm overflow-x-auto">
+            {NAV_ITEMS.map((item) => (
+              <button key={item.key} onClick={() => setNav(item.key)} className="pb-1 whitespace-nowrap"
+                style={{ borderBottom: nav === item.key ? `2px solid ${C.accent}` : "2px solid transparent", color: nav === item.key ? C.text : C.textMuted }}>
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-4">
+          <div className="rounded-md px-4 py-2.5 text-sm" style={{ backgroundColor: C.dangerSoft, border: `1px solid ${C.danger}55`, color: C.danger }}>{error}</div>
+        </div>
+      )}
+
+      {nav === "lab" && <BugFinderPage onRunSaved={() => setDataRefresh((n) => n + 1)} setError={setError} />}
+      {nav === "dashboard" && <DashboardPage refreshToken={dataRefresh} setError={setError} />}
+      {nav === "about" && <AboutPage />}
+      {nav === "history" && <HistoryPage refreshToken={dataRefresh} setError={setError} />}
+    </div>
+  );
+}

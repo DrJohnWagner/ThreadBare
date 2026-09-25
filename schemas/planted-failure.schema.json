@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/planted-failure.schema.json",
+  "title": "PlantedFailure",
+  "description": "Ground truth for one failure inserted into a Run's parallel version. Never sent to the analyser agent that produces ReportFinding.",
+  "type": "object",
+  "properties": {
+    "typeKey": {
+      "type": "string",
+      "description": "Taxonomy item key — see taxonomy.json."
+    },
+    "implementationNote": {
+      "type": "string",
+      "description": "Where/how the failure was inserted, for the instructor's own reference."
+    }
+  },
+  "required": ["typeKey", "implementationNote"],
+  "additionalProperties": false
+}

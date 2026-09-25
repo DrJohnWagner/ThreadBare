@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/computation-spec.schema.json",
+  "title": "ComputationSpec",
+  "description": "Language-independent specification of the computation to build, produced by the Intake agent and consumed by every downstream agent instead of the user's raw source material.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Short, lowercase, underscore_separated identifier for the computation, e.g. 'histogram', 'prefix_sum'. Used to derive function names."
+    },
+    "description": {
+      "type": "string",
+      "description": "One or two sentences: what the program computes."
+    },
+    "inputDescription": {
+      "type": "string",
+      "description": "The exact input(s): types, shapes/sizes, and a concrete deterministic generation strategy (e.g. a seeded PRNG formula)."
+    },
+    "correctnessCheck": {
+      "type": "string",
+      "description": "The exact output(s) and what makes an output right, stated so a program can check it mechanically."
+    },
+    "parallelDecomposition": {
+      "type": "string",
+      "description": "The natural unit of parallel work, and whether iterations/chunks have true data dependencies."
+    },
+    "problemSizes": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "description": "One or more suggested problem sizes, large enough to make timing/race effects observable, small enough to run unattended."
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Anything inferred or guessed rather than stated by the user, flagged explicitly. Empty array if none."
+    }
+  },
+  "required": [
+    "name",
+    "description",
+    "inputDescription",
+    "correctnessCheck",
+    "parallelDecomposition",
+    "problemSizes",
+    "assumptions"
+  ],
+  "additionalProperties": false
+}

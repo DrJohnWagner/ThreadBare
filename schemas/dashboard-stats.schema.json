@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/dashboard-stats.schema.json",
+  "title": "DashboardStats",
+  "description": "Pre-aggregated stats, computed server-side over the in-memory run list. Returned by GET /api/dashboard. No 'difficulty' or 'byLanguage' breakdown — MVP has one language (no information in that chart) and no way to assess difficulty (dropped, not deferred). No fix-rate tracking either — that concept was retired along with the frontend's Fix reveal.",
+  "type": "object",
+  "properties": {
+    "totalRuns": { "type": "integer", "minimum": 0 },
+    "byCategory": {
+      "type": "object",
+      "properties": {
+        "safety": { "type": "integer", "minimum": 0 },
+        "performance": { "type": "integer", "minimum": 0 },
+        "liveness": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["safety", "performance", "liveness"],
+      "additionalProperties": false,
+      "description": "All three keys always present, defaulting to 0 — fixed to the three families in taxonomy.json."
+    },
+    "byType": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "Keyed by taxonomy item key. Open map, not enumerated here, so this schema doesn't need updating whenever taxonomy.json's item list changes."
+    }
+  },
+  "required": ["totalRuns", "byCategory", "byType"],
+  "additionalProperties": false
+}

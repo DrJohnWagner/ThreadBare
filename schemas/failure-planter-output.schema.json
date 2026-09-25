@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/failure-planter-output.schema.json",
+  "title": "FailurePlanterOutput",
+  "description": "Structured output of the Failure Planter agent: the corrupted C function plus the ground truth for every failure it planted. The planted-failure items are exactly PlantedFailure — the same shape stored on Run.plantedFailures.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Complete C source for the corrupted function, same signature as the correct version it was derived from."
+    },
+    "plantedFailures": {
+      "type": "array",
+      "items": { "$ref": "planted-failure.schema.json" }
+    },
+    "declineReason": {
+      "type": "string",
+      "description": "Empty when failures were planted. Otherwise why the requested failure mode could not be planted in this computation; plantedFailures is then empty."
+    }
+  },
+  "required": ["code", "plantedFailures", "declineReason"],
+  "additionalProperties": false
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://threadbare.dev/schemas/generation-request.schema.json",
+  "title": "GenerationRequest",
+  "description": "Body of POST /api/runs. failureModes items are taxonomy.json keys — validated against the loaded taxonomy at the application level on both sides, not hardcoded here, so this schema and taxonomy.json can't drift apart.",
+  "type": "object",
+  "properties": {
+    "language": {
+      "const": "c-openmp",
+      "description": "MVP supports exactly one target. A const, not an enum, so widening it later is a visible, deliberate schema change."
+    },
+    "failureModes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "description": "Taxonomy item keys the user asked to have planted. Empty array means the generator's choice."
+    },
+    "sourceMaterial": {
+      "type": ["object", "null"],
+      "properties": {
+        "code": { "type": "string" },
+        "text": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false,
+      "description": "Null, or any combination of code/text/url present. Always present as a key on the wire (Pydantic serializes Optional[...] = None as an explicit null, not an absent key) — not optional-and-absent."
+    }
+  },
+  "required": ["language", "failureModes"],
+  "additionalProperties": false
+}
