@@ -1,0 +1,10 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.2s]
+
+$ ./harness
+[check] parallel call exceeded 12-second wall-clock timeout
+[verdict] LIVE-01 exposed
+[exit status: 1] [12.8s]
+

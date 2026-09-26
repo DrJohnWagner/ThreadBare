@@ -1,0 +1,4 @@
+$ OMP_NUM_THREADS=1 ./harness --reps 1
+[check] rep=1 first divergence: slot=1 source=15500 vertex=0 distance=0 expected_distance=2 parent=-1 expected_parent=893 mismatches=4210197
+[verdict] SAFE-01 exposed
+[exit status: 1]

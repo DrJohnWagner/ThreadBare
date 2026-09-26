@@ -1,0 +1,10 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel_fixed.c -o harness_fixed
+[exit status: 0] [1.2s]
+
+$ ./harness_fixed
+[check] parallel call completed; summary matches reference
+[verdict] LIVE-01 not triggered
+[exit status: 0] [0.8s]
+

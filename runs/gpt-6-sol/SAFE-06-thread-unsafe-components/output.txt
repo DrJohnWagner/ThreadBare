@@ -1,0 +1,30 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.0s]
+
+$ exec script -q /dev/null ./harness
+^D[check] rep=1 first row=0 expected=(0,0,1175,168486) actual=(0,0,1149,160956)
+[check] rep=2 first row=0 expected=(0,0,1175,168486) actual=(0,0,1419,194294)
+[check] rep=3 first row=16 expected=(1,0,1419,194294) actual=(1,0,1554,185797)
+[check] rep=4 first row=0 expected=(0,0,1175,168486) actual=(0,0,1340,187200)
+[check] rep=5 first row=16 expected=(1,0,1419,194294) actual=(1,0,1528,190557)
+[check] rep=6 first row=32 expected=(2,0,1437,190440) actual=(2,0,1383,192767)
+[check] rep=7 first row=16 expected=(1,0,1419,194294) actual=(1,0,1437,190440)
+[check] rep=8 first row=16 expected=(1,0,1419,194294) actual=(1,0,1618,214294)
+[check] rep=9 first row=0 expected=(0,0,1175,168486) actual=(0,0,1340,187200)
+[check] rep=10 first row=32 expected=(2,0,1437,190440) actual=(2,0,1357,166298)
+[check] rep=11 first row=16 expected=(1,0,1419,194294) actual=(1,0,1466,182611)
+[check] rep=12 first row=48 expected=(3,0,1535,180658) actual=(3,0,1327,156684)
+[check] rep=13 first row=32 expected=(2,0,1437,190440) actual=(2,0,1377,180920)
+[check] rep=14 first row=0 expected=(0,0,1175,168486) actual=(0,0,1231,180722)
+[check] rep=15 first row=0 expected=(0,0,1175,168486) actual=(0,0,1107,168780)
+[check] rep=16 first row=64 expected=(4,0,1327,156684) actual=(4,0,1703,226530)
+[check] rep=17 first row=16 expected=(1,0,1419,194294) actual=(1,0,1655,210322)
+[check] rep=18 first row=0 expected=(0,0,1175,168486) actual=(0,0,1313,188337)
+[check] rep=19 first row=16 expected=(1,0,1419,194294) actual=(1,0,1493,203533)
+[check] rep=20 first row=0 expected=(0,0,1175,168486) actual=(0,0,1419,194294)
+[summary] records=9200000 reading_sum=1172801922 rows=6400
+[verdict] SAFE-01 exposed
+[exit status: 1] [0.8s]
+

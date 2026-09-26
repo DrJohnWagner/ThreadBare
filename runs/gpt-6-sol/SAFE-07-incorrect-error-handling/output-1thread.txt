@@ -1,0 +1,4 @@
+$ OMP_NUM_THREADS=1 ./harness --reps 1
+[check] repetition 1: malformed-file return reference=-1 parallel=0
+[verdict] SAFE-01 exposed
+[exit status: 1]

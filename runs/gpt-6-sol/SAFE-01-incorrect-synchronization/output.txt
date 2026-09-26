@@ -1,0 +1,8 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness -lm
+[exit status: 0] [1.0s]
+
+$ exec script -q /dev/null ./harness
+^D[exit status: killed by outer limit] [300.0s]
+

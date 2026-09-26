@@ -1,0 +1,11 @@
+{
+  "language": "c-openmp",
+  "failureModes": [
+    "shared-resource-contention"
+  ],
+  "sourceMaterial": {
+    "code": null,
+    "text": "Breadth-first search over a 5-million-edge power-law graph with about 310,000 vertices, recording the hop distance and parent of every reachable vertex. Build the graph once up front, then traverse from 20 different source vertices per measured run.",
+    "url": null
+  }
+}

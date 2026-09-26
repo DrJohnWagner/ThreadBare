@@ -1,0 +1,12 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.6s]
+
+$ ./harness
+[scale] serial seconds=2.870232
+[scale] threads=1 seconds=4.637757 speedup=0.619 efficiency=0.619
+[check] all distances and parent levels match
+[verdict] PERF-01 not triggered
+[exit status: 0] [16.1s]
+

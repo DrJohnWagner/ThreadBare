@@ -1,0 +1,9 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel_fixed.c -o harness_fixed
+[exit status: 0] [0.8s]
+
+$ exec script -q /dev/null ./harness_fixed
+^D[verdict] SAFE-01 not triggered
+[exit status: 0] [1.1s]
+

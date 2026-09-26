@@ -1,0 +1,29 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [0.9s]
+
+$ exec script -q /dev/null ./harness
+^D[check] repetition 1: malformed-file return reference=-1 parallel=0
+[check] repetition 2: malformed-file return reference=-1 parallel=0
+[check] repetition 3: malformed-file return reference=-1 parallel=0
+[check] repetition 4: malformed-file return reference=-1 parallel=0
+[check] repetition 5: malformed-file return reference=-1 parallel=0
+[check] repetition 6: malformed-file return reference=-1 parallel=0
+[check] repetition 7: malformed-file return reference=-1 parallel=0
+[check] repetition 8: malformed-file return reference=-1 parallel=0
+[check] repetition 9: malformed-file return reference=-1 parallel=0
+[check] repetition 10: malformed-file return reference=-1 parallel=0
+[check] repetition 11: malformed-file return reference=-1 parallel=0
+[check] repetition 12: malformed-file return reference=-1 parallel=0
+[check] repetition 13: malformed-file return reference=-1 parallel=0
+[check] repetition 14: malformed-file return reference=-1 parallel=0
+[check] repetition 15: malformed-file return reference=-1 parallel=0
+[check] repetition 16: malformed-file return reference=-1 parallel=0
+[check] repetition 17: malformed-file return reference=-1 parallel=0
+[check] repetition 18: malformed-file return reference=-1 parallel=0
+[check] repetition 19: malformed-file return reference=-1 parallel=0
+[check] repetition 20: malformed-file return reference=-1 parallel=0
+[verdict] SAFE-01 exposed
+[exit status: 1] [1.1s]
+

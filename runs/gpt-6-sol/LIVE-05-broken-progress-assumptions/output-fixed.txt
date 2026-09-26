@@ -1,0 +1,22 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel_fixed.c -o harness_fixed
+harness.c: In function 'main':
+harness.c:112:59: error: implicit declaration of function 'mkdtemp'; did you mean 'mkstemp'? [-Wimplicit-function-declaration]
+  112 |     if (!paths || !raw || !compressed || !serial_rows || !mkdtemp(directory)) {
+      |                                                           ^~~~~~~
+      |                                                           mkstemp
+[exit status: 1] [0.8s]
+
+Build failed as written; retrying with macOS feature macro.
+
+$ gcc-14 -D_DARWIN_C_SOURCE -O2 -fopenmp harness.c serial.c parallel_fixed.c -o harness_fixed
+[exit status: 0] [1.2s]
+
+$ ./harness_fixed
+[check] serial returned 0; summary=(6400,9200000,4578488848); expected=(6400,9200000,4578488848)
+[check] parallel returned 0; summary=(6400,9200000,4578488848)
+[check] parallel process exited before timeout (status 0)
+[verdict] LIVE-01 not triggered
+[exit status: 0] [1.3s]
+

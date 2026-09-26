@@ -1,0 +1,5 @@
+$ OMP_NUM_THREADS=1 ./harness --reps 1
+[check] rep=1 first row=0 expected=(0,0,1175,168486) actual=(0,0,1355,185939)
+[summary] records=9200000 reading_sum=1172801922 rows=6400
+[verdict] SAFE-01 exposed
+[exit status: 1]
