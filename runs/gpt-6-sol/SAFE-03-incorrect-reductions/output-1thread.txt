@@ -1,0 +1,4 @@
+$ OMP_NUM_THREADS=1 ./harness --reps 1
+[check] rep=1 match
+[verdict] SAFE-01 not triggered
+[exit status: 0]

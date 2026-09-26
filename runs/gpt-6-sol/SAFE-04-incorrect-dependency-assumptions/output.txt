@@ -1,0 +1,24 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.0s]
+
+$ exec script -q /dev/null ./harness
+^D[check] rep=1 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=3.5 (centroid mismatches=128)
+[check] rep=2 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=1.1000000000000001 (centroid mismatches=128)
+[check] rep=3 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=2.625 (centroid mismatches=128)
+[check] rep=4 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=2.9090909090909092 (centroid mismatches=128)
+[check] rep=5 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=-0.18518518518518517 (centroid mismatches=128)
+[check] rep=6 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=4 (centroid mismatches=128)
+[check] rep=7 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=-0.20212765957446807 (centroid mismatches=128)
+[check] rep=8 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=1 (centroid mismatches=128)
+[check] rep=9 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=1 (centroid mismatches=128)
+[check] rep=10 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=-0.060606060606060608 (centroid mismatches=128)
+[check] rep=11 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=-0.49152542372881358 (centroid mismatches=128)
+[check] rep=12 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=5.4000000000000004 (centroid mismatches=128)
+[check] rep=13 first divergence: centroid[0][0] reference=0.0070720000000000002 parallel=0.88461538461538458 (centroid mismatches=128)
+[check] rep=14 first divergence: assignment[6] reference=6 parallel=5 (assignment mismatches=28706, centroid mismatches=128)
+[check] rep=15 first divergence: assignment[223] reference=31 parallel=30 (assignment mismatches=2860, centroid mismatches=128)
+[verdict] SAFE-01 exposed
+[exit status: 1] [2.7s]
+

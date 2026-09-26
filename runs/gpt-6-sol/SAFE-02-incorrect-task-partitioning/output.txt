@@ -1,0 +1,29 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.0s]
+
+$ exec script -q /dev/null ./harness
+^D[check] rep=1 assignment[39]: expected=39 actual=31
+[check] rep=2 assignment[39]: expected=39 actual=31
+[check] rep=3 assignment[39]: expected=39 actual=31
+[check] rep=4 assignment[39]: expected=39 actual=31
+[check] rep=5 assignment[39]: expected=39 actual=31
+[check] rep=6 assignment[39]: expected=39 actual=31
+[check] rep=7 assignment[39]: expected=39 actual=31
+[check] rep=8 assignment[39]: expected=39 actual=31
+[check] rep=9 assignment[39]: expected=39 actual=31
+[check] rep=10 assignment[39]: expected=39 actual=31
+[check] rep=11 assignment[39]: expected=39 actual=31
+[check] rep=12 assignment[39]: expected=39 actual=31
+[check] rep=13 assignment[39]: expected=39 actual=31
+[check] rep=14 assignment[39]: expected=39 actual=31
+[check] rep=15 assignment[39]: expected=39 actual=31
+[check] rep=16 assignment[39]: expected=39 actual=31
+[check] rep=17 assignment[39]: expected=39 actual=31
+[check] rep=18 assignment[39]: expected=39 actual=31
+[check] rep=19 assignment[39]: expected=39 actual=31
+[check] rep=20 assignment[39]: expected=39 actual=31
+[verdict] SAFE-01 exposed
+[exit status: 1] [97.9s]
+

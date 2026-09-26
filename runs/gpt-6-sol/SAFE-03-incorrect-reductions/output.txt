@@ -1,0 +1,24 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [0.9s]
+
+$ exec script -q /dev/null ./harness
+^D[check] rep=1 centroid[0][0]: expected=0.0067041015625000375 actual=0.009641932214840665
+[check] rep=2 centroid[0][0]: expected=0.0067041015625000375 actual=0.0089350331819769459
+[check] rep=3 centroid[0][0]: expected=0.0067041015625000375 actual=0.011445794074242269
+[check] rep=4 centroid[0][0]: expected=0.0067041015625000375 actual=-0.0012947791164658628
+[check] rep=5 centroid[0][0]: expected=0.0067041015625000375 actual=0.0019658291457286389
+[check] rep=6 centroid[0][0]: expected=0.0067041015625000375 actual=0.010287638979725271
+[check] rep=7 centroid[0][0]: expected=0.0067041015625000375 actual=-0.0019043791574279232
+[check] rep=8 centroid[0][0]: expected=0.0067041015625000375 actual=0.010598422090729785
+[check] rep=9 centroid[0][0]: expected=0.0067041015625000375 actual=0.0079496377241952826
+[check] rep=10 centroid[0][0]: expected=0.0067041015625000375 actual=0.0073856646825396829
+[check] rep=11 centroid[0][0]: expected=0.0067041015625000375 actual=0.0016480963386449332
+[check] rep=12 centroid[0][0]: expected=0.0067041015625000375 actual=0.0094633757961783468
+[check] rep=13 centroid[0][0]: expected=0.0067041015625000375 actual=-0.0013843021623139618
+[check] rep=14 centroid[0][0]: expected=0.0067041015625000375 actual=0.0062734997344662717
+[check] rep=15 centroid[0][0]: expected=0.0067041015625000375 actual=0.0014573516441980529
+[verdict] SAFE-01 exposed
+[exit status: 1] [2.3s]
+

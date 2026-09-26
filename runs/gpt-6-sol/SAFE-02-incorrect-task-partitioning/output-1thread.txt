@@ -1,0 +1,4 @@
+$ OMP_NUM_THREADS=1 ./harness --reps 1
+[check] rep=1 assignment[39]: expected=39 actual=31
+[verdict] SAFE-01 exposed
+[exit status: 1]

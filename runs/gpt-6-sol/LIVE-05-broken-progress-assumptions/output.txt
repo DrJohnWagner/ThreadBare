@@ -1,0 +1,21 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+harness.c: In function 'main':
+harness.c:112:59: error: implicit declaration of function 'mkdtemp'; did you mean 'mkstemp'? [-Wimplicit-function-declaration]
+  112 |     if (!paths || !raw || !compressed || !serial_rows || !mkdtemp(directory)) {
+      |                                                           ^~~~~~~
+      |                                                           mkstemp
+[exit status: 1] [0.7s]
+
+Build failed as written; retrying with macOS feature macro.
+
+$ gcc-14 -D_DARWIN_C_SOURCE -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.3s]
+
+$ ./harness
+[check] serial returned 0; summary=(6400,9200000,4578488848); expected=(6400,9200000,4578488848)
+[check] parallel call exceeded 8-second wall-clock timeout with 2 threads
+[verdict] LIVE-01 exposed
+[exit status: 1] [9.1s]
+

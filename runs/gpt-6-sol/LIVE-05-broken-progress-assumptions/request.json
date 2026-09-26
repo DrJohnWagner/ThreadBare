@@ -1,0 +1,11 @@
+{
+  "language": "c-openmp",
+  "failureModes": [
+    "broken-progress-assumptions"
+  ],
+  "sourceMaterial": {
+    "code": null,
+    "text": "A three-stage ingest pipeline over 200 sensor-log files of roughly 23,000 records each, generated from a seed rather than shipped. Stage one reads and decompresses a file, stage two decodes its records, stage three appends one summary row per file per sensor to a shared results table; a bounded queue sits between each pair of stages. Report a short fixed summary at the end and nothing per file or per record.",
+    "url": null
+  }
+}

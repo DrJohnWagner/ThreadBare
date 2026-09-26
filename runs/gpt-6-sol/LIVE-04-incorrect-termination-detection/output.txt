@@ -1,0 +1,23 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+harness.c: In function 'main':
+harness.c:126:38: error: 'MAP_ANONYMOUS' undeclared (first use in this function)
+  126 |                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+      |                                      ^~~~~~~~~~~~~
+harness.c:126:38: note: each undeclared identifier is reported only once for each function it appears in
+[exit status: 1] [0.8s]
+
+Build failed as written; retrying with macOS feature macro.
+
+$ gcc-14 -D_DARWIN_C_SOURCE -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [1.3s]
+
+$ ./harness
+[check] repetition 1: source[12]=52566 vertex=66456: distance 4/4, parent 4197/5421 (serial/parallel)
+[check] repetition 2: source[6]=32192 vertex=122663: distance 4/4, parent 15077/27463 (serial/parallel)
+[check] repetition 3: source[6]=32192 vertex=122663: distance 4/4, parent 15077/27463 (serial/parallel)
+[check] repetition 4: source[6]=32192 vertex=220318: distance 4/4, parent 5508/5537 (serial/parallel)
+[verdict] LIVE-01 exposed
+[exit status: 1] [7.9s]
+

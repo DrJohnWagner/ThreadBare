@@ -1,0 +1,24 @@
+OMP_NUM_THREADS=8 SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+
+$ gcc-14 -O2 -fopenmp harness.c serial.c parallel.c -o harness
+[exit status: 0] [0.8s]
+
+$ exec script -q /dev/null ./harness
+^D[check] rep=1 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=893 expected_parent=-1 mismatches=3578638
+[check] rep=2 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=3 expected_parent=-1 mismatches=4235960
+[check] rep=3 first divergence: slot=0 source=0 vertex=0 distance=1 expected_distance=0 parent=108500 expected_parent=-1 mismatches=4477448
+[check] rep=4 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=3 expected_parent=-1 mismatches=4435397
+[check] rep=5 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=760 expected_parent=-1 mismatches=4446816
+[check] rep=6 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=760 expected_parent=-1 mismatches=4252117
+[check] rep=7 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=3 expected_parent=-1 mismatches=4458948
+[check] rep=8 first divergence: slot=0 source=0 vertex=0 distance=1 expected_distance=0 parent=46500 expected_parent=-1 mismatches=4233512
+[check] rep=9 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=3 expected_parent=-1 mismatches=4472907
+[check] rep=10 first divergence: slot=0 source=0 vertex=0 distance=1 expected_distance=0 parent=46500 expected_parent=-1 mismatches=3823150
+[check] rep=11 first divergence: slot=0 source=0 vertex=0 distance=1 expected_distance=0 parent=31000 expected_parent=-1 mismatches=3989181
+[check] rep=12 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=3 expected_parent=-1 mismatches=4243355
+[check] rep=13 first divergence: slot=0 source=0 vertex=0 distance=1 expected_distance=0 parent=108500 expected_parent=-1 mismatches=4264190
+[check] rep=14 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=893 expected_parent=-1 mismatches=4476881
+[check] rep=15 first divergence: slot=0 source=0 vertex=0 distance=2 expected_distance=0 parent=3 expected_parent=-1 mismatches=4208505
+[verdict] SAFE-01 exposed
+[exit status: 1] [43.2s]
+

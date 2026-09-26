@@ -1,0 +1,11 @@
+{
+  "language": "c-openmp",
+  "failureModes": [
+    "incorrect-reductions"
+  ],
+  "sourceMaterial": {
+    "code": null,
+    "text": "Lloyd's k-means over one million two-dimensional points and 64 centroids. Each iteration assigns every point to its nearest centroid, recomputes each centroid as the mean of its members, then checks whether any assignment changed; repeat until none does.",
+    "url": null
+  }
+}
