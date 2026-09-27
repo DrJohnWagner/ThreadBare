@@ -19,6 +19,9 @@ load_dotenv(find_dotenv())
 
 MODEL = os.environ.get("MODEL", "kimi-k2.7-code")
 PROVIDER = os.environ.get("PROVIDER", "openai")
+# Optional cap on output tokens, reasoning included; unset means the provider's
+# default. Kimi K2.6's default runs out mid-reply on the longer agents.
+MAX_COMPLETION_TOKENS = int(os.environ.get("MAX_COMPLETION_TOKENS") or 0) or None
 
 # base_url for each supported PROVIDER value; "openai" maps to None so the OpenAI SDK
 # uses its own built-in default rather than this file hardcoding it.

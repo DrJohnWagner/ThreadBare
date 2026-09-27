@@ -25,9 +25,10 @@ to come back as a parameter here, gated on whether the configured model supports
 
 import json
 
+from openai import NOT_GIVEN
 from pydantic import BaseModel, ValidationError
 
-from .config import MODEL, PROVIDER, get_client
+from .config import MAX_COMPLETION_TOKENS, MODEL, PROVIDER, get_client
 
 
 class AgentCallError(RuntimeError):
@@ -107,6 +108,7 @@ def call_agent[T: BaseModel](
             {"role": "user", "content": user_prompt},
         ],
         response_format=response_format,
+        max_completion_tokens=MAX_COMPLETION_TOKENS or NOT_GIVEN,
     )
 
     choice = completion.choices[0]
