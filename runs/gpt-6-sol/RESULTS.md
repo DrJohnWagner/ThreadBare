@@ -15,6 +15,7 @@ Generated 2026-09-25 by `run-prompts.py runs/gpt-6-sol`, one run per taxonomy ty
 
 - Compiled each `parallel.c` and `parallel_fixed.c` on its own (`-c`) with Apple clang and Homebrew libomp at `-O2`, before `gcc-14` was installed. The harnesses were built and run afterwards; see RUN SUMMARY.
 - The "planted" column is my reading of the diff between the two files, checked against the requested type.
+- The "only" column reads the same diff and asks the opposite question: does every hunk belong to one mechanism, or did the Planter also change something the requested type doesn't call for. See "Only the requested failure?" below for the method and two judgement calls it rests on.
 - "Analyser" records whether a report finding carries the requested `typeKey`, and where not, how it labelled the planted change.
 
 ## Summary
@@ -26,6 +27,7 @@ Generated 2026-09-25 by `run-prompts.py runs/gpt-6-sol`, one run per taxonomy ty
 | planted and fixed versions both compile | 16 |
 | plants the requested failure | 15 |
 | plant partly right | 1 |
+| plants *only* the requested failure (no unrelated change in the diff) | 16 of 16 |
 | planted-only comments that point at the failure | 0 |
 | Analyser reports the requested type | 10 of 16 |
 | Analyser finds the planted change under any label | 16 of 16 |
@@ -35,37 +37,53 @@ Each type was run once, so a single row says little about how reliably the pipel
 
 ## Safety — differential harness
 
-| code | prompt | planted | Analyser |
-|---|---|---|---|
-| SAFE-01 incorrect synchronization | k-means | Yes — drops `sums[:128]` from the loop's `reduction`, so threads race on the centroid sums and lose updates. | found it, filed as `incorrect-reductions` |
-| SAFE-02 incorrect task partitioning | k-means | Yes — `for (int k = 1; k < 63; ++k)` never considers centroid 63. The output is wrong on every run, including with one thread. | yes |
-| SAFE-03 incorrect reductions | k-means | Yes — adds `#pragma omp parallel for` to the accumulation loop, which updates shared `sums` and `counts` with no reduction. | yes |
-| SAFE-04 dependency assumptions | k-means | Yes — puts accumulation and centroid update in separate `omp section`s, so the update can read partial sums. | found it, filed as `incorrect-synchronization` |
-| SAFE-05 resource lifetime | BFS | Declined: "Freeing it while another search still uses it would likely cause a use-after-free crash, rather than an observable wrong output with normal termination." The terminate-normally rule is what blocked it. | — |
-| SAFE-06 thread-unsafe components | pipeline | Yes — the decoder works in a `static` scratch array shared by all decode workers. | found it, filed as `incorrect-synchronization` |
-| SAFE-07 error / cancellation | pipeline | Yes — `firstprivate(failed)` in place of `reduction(\|:failed)` drops a worker's error flag, so a malformed file returns success. The harness feeds in a malformed block and checks for `-1`. | found it, filed as `incorrect-reductions` |
-| SAFE-08 unintended nondeterminism | BFS | Partly — picks the source from `omp_get_thread_num()` in place of `k`. Which thread runs slot `k` varies from run to run, but the result is also wrong against the serial reference on almost every run, so it reads more as a partitioning bug. | found it, filed as `incorrect-task-partitioning` |
+| code | prompt | planted | only? | Analyser |
+|---|---|---|---|---|
+| SAFE-01 incorrect synchronization | k-means | Yes — drops `sums[:128]` from the loop's `reduction`, so threads race on the centroid sums and lose updates. | Yes — the diff is the one dropped array from the clause. | found it, filed as `incorrect-reductions` |
+| SAFE-02 incorrect task partitioning | k-means | Yes — `for (int k = 1; k < 63; ++k)` never considers centroid 63. The output is wrong on every run, including with one thread. | Yes — the diff is the one loop bound. | yes |
+| SAFE-03 incorrect reductions | k-means | Yes — adds `#pragma omp parallel for` to the accumulation loop, which updates shared `sums` and `counts` with no reduction. | Yes — the diff is the one added pragma line. | yes |
+| SAFE-04 dependency assumptions | k-means | Yes — puts accumulation and centroid update in separate `omp section`s, so the update can read partial sums. | Yes — the diff is the `sections`/`section` wrapper around the two existing loops, nothing inside either loop changed. | found it, filed as `incorrect-synchronization` |
+| SAFE-05 resource lifetime | BFS | Declined: "Freeing it while another search still uses it would likely cause a use-after-free crash, rather than an observable wrong output with normal termination." The terminate-normally rule is what blocked it. | — nothing was planted. | — |
+| SAFE-06 thread-unsafe components | pipeline | Yes — the decoder works in a `static` scratch array shared by all decode workers. | Yes — the diff replaces direct writes to `job->decoded` with writes to the new static buffer, then copies it across; one mechanism. | found it, filed as `incorrect-synchronization` |
+| SAFE-07 error / cancellation | pipeline | Yes — `firstprivate(failed)` in place of `reduction(\|:failed)` drops a worker's error flag, so a malformed file returns success. The harness feeds in a malformed block and checks for `-1`. | Yes — the diff is the one clause swap. (The file also gains a trailing newline; not a code difference.) | found it, filed as `incorrect-reductions` |
+| SAFE-08 unintended nondeterminism | BFS | Partly — picks the source from `omp_get_thread_num()` in place of `k`. Which thread runs slot `k` varies from run to run, but the result is also wrong against the serial reference on almost every run, so it reads more as a partitioning bug. | Yes — the diff is the one substituted expression. "Only" and "planted" are independent: this plant is single-mechanism *and* a poor category match. | found it, filed as `incorrect-task-partitioning` |
 
 ## Performance — scaling harness
 
-| code | prompt | planted | Analyser |
-|---|---|---|---|
-| PERF-01 excessive synchronization | k-means | Yes — a `critical` around each point's nearest-centroid search serialises the main loop. | yes |
-| PERF-02 poor partitioning | BFS | Yes — `schedule(static, 16)` over 20 searches gives one thread 16 searches, another 4 and the rest none. | yes |
-| PERF-03 oversubscription | pipeline | Yes — `num_threads(2 * omp_get_num_procs())`. | yes |
-| PERF-04 memory bottlenecks | k-means | Yes — `schedule(static, 1)` puts adjacent points on different threads, so their writes to adjacent `assignments` entries share cache lines. | yes |
-| PERF-05 shared-resource contention | BFS | Yes — every search `fprintf`s each visited vertex to one shared `FILE *` on `/dev/null`, so threads contend for the stream's lock. | yes |
-| PERF-06 insufficient parallelism | k-means | Yes — `num_threads(2)` caps the assignment loop at two threads. | yes |
+| code | prompt | planted | only? | Analyser |
+|---|---|---|---|---|
+| PERF-01 excessive synchronization | k-means | Yes — a `critical` around each point's nearest-centroid search serialises the main loop. | Yes — the diff is the one `critical` block. | yes |
+| PERF-02 poor partitioning | BFS | Yes — `schedule(static, 16)` over 20 searches gives one thread 16 searches, another 4 and the rest none. | Yes — the diff is the one clause swap. (The file also gains a trailing newline; not a code difference.) | yes |
+| PERF-03 oversubscription | pipeline | Yes — `num_threads(2 * omp_get_num_procs())`. | Yes — the diff is that clause plus the `<omp.h>` include it needs; the include is scaffolding for the one change, not a second one. | yes |
+| PERF-04 memory bottlenecks | k-means | Yes — `schedule(static, 1)` puts adjacent points on different threads, so their writes to adjacent `assignments` entries share cache lines. | Yes — the diff is the one clause. | yes |
+| PERF-05 shared-resource contention | BFS | Yes — every search `fprintf`s each visited vertex to one shared `FILE *` on `/dev/null`, so threads contend for the stream's lock. | Yes — the diff is the stream open/write/close plus its `<stdio.h>` include, all one mechanism (the open's error path is required to use the stream safely, not a separate failure). | yes |
+| PERF-06 insufficient parallelism | k-means | Yes — `num_threads(2)` caps the assignment loop at two threads. | Yes — the diff is the one added clause. | yes |
 
 ## Liveness — timeout harness
 
-| code | prompt | planted | Analyser |
-|---|---|---|---|
-| LIVE-01 deadlock | pipeline | Yes — counting tasks take lock 0 then lock 1, append tasks take lock 1 then lock 0. It deadlocks only when tasks for two files overlap. | yes |
-| LIVE-02 livelock | pipeline | Declined: "The queue pipeline has no retry or reciprocal backoff protocol in which workers could naturally keep changing state without advancing." | — |
-| LIVE-03 starvation | BFS | Declined: "The 20 traversals are independent … There is no contended lock or resource through which one worker could indefinitely deny another required work." | — |
-| LIVE-04 termination detection | BFS | Yes — one `finished` flag shared across independent searches, so one search's completion can make another exit early. The program terminates with wrong distances; the harness compares every distance and parent after its timeout check, so it catches this. | yes |
-| LIVE-05 progress assumptions | pipeline | Yes — under `schedule(static, 1)`, file `f` waits for file `f + 1`, which belongs to a thread already spinning. It hangs whenever there are 2 or more threads and more files than threads; the one-thread path skips the wait. | found it, filed as `deadlock` — also a fair label |
+| code | prompt | planted | only? | Analyser |
+|---|---|---|---|---|
+| LIVE-01 deadlock | pipeline | Yes — counting tasks take lock 0 then lock 1, append tasks take lock 1 then lock 0. It deadlocks only when tasks for two files overlap. | Yes — every hunk (the `<omp.h>` include, the two locks, the acquire/release pairs in each task) belongs to the one lock-ordering mechanism. | yes |
+| LIVE-02 livelock | pipeline | Declined: "The queue pipeline has no retry or reciprocal backoff protocol in which workers could naturally keep changing state without advancing." | — nothing was planted. | — |
+| LIVE-03 starvation | BFS | Declined: "The 20 traversals are independent … There is no contended lock or resource through which one worker could indefinitely deny another required work." | — nothing was planted. | — |
+| LIVE-04 termination detection | BFS | Yes — one `finished` flag shared across independent searches, so one search's completion can make another exit early. The program terminates with wrong distances; the harness compares every distance and parent after its timeout check, so it catches this. | Yes — the diff is the one flag (declaration, reset, atomic read/check, atomic write), a single mechanism. | yes |
+| LIVE-05 progress assumptions | pipeline | Yes — under `schedule(static, 1)`, file `f` waits for file `f + 1`, which belongs to a thread already spinning. It hangs whenever there are 2 or more threads and more files than threads; the one-thread path skips the wait. | Yes — the diff is the `completed` array, the busy-wait, the write, `schedule(static,1)`, and the `<omp.h>` include the busy-wait needs; all one mechanism. | found it, filed as `deadlock` — also a fair label |
+
+## Only the requested failure?
+
+**Planted** asks whether the requested failure is in the diff. **Only** asks the reverse: is there anything in the diff besides it. A run scores **Yes** only if every hunk between `parallel_fixed.c` and `parallel.c` belongs to one mechanism — read against the full unified diff, not just the lines the RESULTS.md description above quotes.
+
+Two kinds of hunk don't count against a **Yes**:
+
+- **a header the mechanism needs** — `<omp.h>` in LIVE-01, LIVE-05 and PERF-03 (for locks, a busy-wait and `omp_get_num_procs()`), `<stdio.h>` in PERF-05 (for the contended `FILE *`). Each is confirmed absent from the matching `parallel_fixed.c` (i.e. genuinely added, not a diff artefact), and each exists only to make the one planted construct compile. Scaffolding, not a second failure.
+- **a trailing-newline difference at end of file** — PERF-02, SAFE-07 and SAFE-08. This is how the two files happened to be saved, not a line the compiler treats as code.
+
+Both are judgement calls, made the same way each time they came up, and stated here so the call is checkable rather than asserted.
+
+By this method, all 16 saved runs are **Yes** — every plant in this batch is a single, self-contained mechanism, with no second, unrequested failure riding along. Two things this does *not* show:
+
+1. **Only** and **planted** are independent axes. SAFE-08 is **Yes** on only (one substituted expression) and **Partly** on planted (the substitution reads more like a partitioning bug than the requested nondeterminism) — a clean single-mechanism diff doesn't guarantee it lands on the right failure.
+2. One run per type is a single draw. A **Yes** here means this batch didn't produce a compound plant, not that the pipeline can't — 16-for-16 on one trial each is the finding, not evidence of a rate.
 
 ## Problems remaining
 
